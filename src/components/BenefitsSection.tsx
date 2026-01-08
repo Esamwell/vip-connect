@@ -181,7 +181,11 @@ export function BenefitsSection() {
             Acesse seu cartão VIP digital e descubra todas as vantagens disponíveis para você. 
             Novos benefícios são adicionados frequentemente!
           </p>
-          <Button variant="vip" size="lg">
+          <Button 
+            variant="vip" 
+            size="lg"
+            onClick={() => window.location.href = '/meu-cartao'}
+          >
             <Star className="w-5 h-5" />
             Acessar Meu Cartão VIP
           </Button>

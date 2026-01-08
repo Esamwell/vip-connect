@@ -1,4 +1,3 @@
-import { Crown } from 'lucide-react';
 
 export function Footer() {
   return (
@@ -7,8 +6,12 @@ export function Footer() {
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
           {/* Logo */}
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg gradient-vip flex items-center justify-center">
-              <Crown className="w-5 h-5 text-primary" />
+            <div className="w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center bg-background">
+              <img 
+                src="/logovipasi.png" 
+                alt="Cliente VIP" 
+                className="w-full h-full object-contain"
+              />
             </div>
             <div>
               <span className="font-display font-bold text-lg text-primary-foreground">

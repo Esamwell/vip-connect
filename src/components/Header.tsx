@@ -1,12 +1,17 @@
-import { Crown, Menu } from 'lucide-react';
+import { Menu, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface HeaderProps {
   showNav?: boolean;
 }
 
 export function Header({ showNav = true }: HeaderProps) {
+  const navigate = useNavigate();
+  const { isAuthenticated, user, logout } = useAuth();
+
   return (
     <motion.header 
       initial={{ y: -20, opacity: 0 }}
@@ -16,8 +21,12 @@ export function Header({ showNav = true }: HeaderProps) {
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         {/* Logo */}
         <a href="/" className="flex items-center gap-3 group">
-          <div className="w-10 h-10 rounded-lg gradient-vip flex items-center justify-center shadow-vip group-hover:scale-105 transition-transform">
-            <Crown className="w-5 h-5 text-primary" />
+          <div className="w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center shadow-vip group-hover:scale-105 transition-transform bg-background">
+            <img 
+              src="/logovipasi.png" 
+              alt="Cliente VIP" 
+              className="w-full h-full object-contain"
+            />
           </div>
           <div>
             <span className="font-display font-bold text-lg text-foreground">
@@ -46,10 +55,36 @@ export function Header({ showNav = true }: HeaderProps) {
 
         {/* Actions */}
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" className="hidden md:flex">
-            Acessar
-          </Button>
-          <Button variant="vip" size="sm">
+          {isAuthenticated ? (
+            <>
+              <span className="hidden md:block text-sm text-muted-foreground">
+                Olá, {user?.nome}
+              </span>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={logout}
+                className="hidden md:flex"
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Sair
+              </Button>
+            </>
+          ) : (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="hidden md:flex"
+              onClick={() => navigate('/login')}
+            >
+              Acessar
+            </Button>
+          )}
+          <Button 
+            variant="vip" 
+            size="sm"
+            onClick={() => navigate('/meu-cartao')}
+          >
             Meu Cartão
           </Button>
           <Button variant="ghost" size="icon" className="md:hidden">

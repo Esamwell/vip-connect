@@ -1,56 +1,224 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
-  Crown, 
   MessageCircle, 
   FileText, 
   Wrench, 
   HelpCircle,
   Send,
   CheckCircle,
-  ArrowLeft
+  ArrowLeft,
+  QrCode,
+  Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { VipCard } from '@/components/VipCard';
+import { clientesService, ClienteVip } from '@/services/clientes.service';
+import { chamadosService } from '@/services/chamados.service';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale/pt-BR';
 
 const ticketTypes = [
-  { id: 'documents', icon: FileText, label: 'Documentação', description: 'Dúvidas sobre documentos do veículo' },
-  { id: 'adjustment', icon: Wrench, label: 'Ajuste Pós-venda', description: 'Problemas ou ajustes após a compra' },
-  { id: 'store', icon: MessageCircle, label: 'Problema com Loja', description: 'Reclamação ou sugestão sobre atendimento' },
-  { id: 'general', icon: HelpCircle, label: 'Dúvidas Gerais', description: 'Outras dúvidas sobre o programa VIP' },
-];
+  { id: 'documentacao', icon: FileText, label: 'Documentação', description: 'Dúvidas sobre documentos do veículo' },
+  { id: 'ajuste_pos_venda', icon: Wrench, label: 'Ajuste Pós-venda', description: 'Problemas ou ajustes após a compra' },
+  { id: 'problema_loja', icon: MessageCircle, label: 'Problema com Loja', description: 'Reclamação ou sugestão sobre atendimento' },
+  { id: 'duvidas_gerais', icon: HelpCircle, label: 'Dúvidas Gerais', description: 'Outras dúvidas sobre o programa VIP' },
+] as const;
 
 const ClientCard = () => {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+  const { toast } = useToast();
+  
+  const [cliente, setCliente] = useState<ClienteVip | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [qrCode, setQrCode] = useState(searchParams.get('qr') || '');
+  const [showQRInput, setShowQRInput] = useState(!isAuthenticated && !qrCode);
+  
   const [selectedType, setSelectedType] = useState<string | null>(null);
+  const [titulo, setTitulo] = useState('');
   const [message, setMessage] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = () => {
-    setSubmitted(true);
+  // Buscar cliente VIP
+  useEffect(() => {
+    const buscarCliente = async () => {
+      if (!qrCode && !isAuthenticated) {
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
+      try {
+        // Se autenticado, buscar pelo ID do usuário ou QR Code
+        // Por enquanto, vamos usar o QR Code da URL ou input
+        if (qrCode) {
+          const data = await clientesService.getByIdOrQR(qrCode);
+          setCliente(data);
+          setShowQRInput(false);
+        }
+      } catch (error: any) {
+        toast({
+          title: 'Erro ao buscar cartão',
+          description: error.message || 'Cliente VIP não encontrado',
+          variant: 'destructive',
+        });
+        setShowQRInput(true);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    buscarCliente();
+  }, [qrCode, isAuthenticated, toast]);
+
+  const handleQRSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (qrCode.trim()) {
+      navigate(`/meu-cartao?qr=${qrCode.trim()}`);
+      window.location.reload(); // Recarregar para buscar dados
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!cliente || !selectedType || !message.trim()) return;
+
+    setIsSubmitting(true);
+    try {
+      await chamadosService.create({
+        cliente_vip_id: cliente.id,
+        tipo: selectedType as any,
+        titulo: titulo.trim() || ticketTypes.find(t => t.id === selectedType)?.label || 'Chamado',
+        descricao: message,
+        prioridade: 2,
+      });
+
+      setSubmitted(true);
+      setTitulo('');
+      setMessage('');
+      setSelectedType(null);
+      
+      toast({
+        title: 'Chamado enviado com sucesso!',
+        description: 'Você receberá uma resposta em até 24h.',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao enviar chamado',
+        description: error.message || 'Tente novamente mais tarde',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleReset = () => {
     setSelectedType(null);
+    setTitulo('');
     setMessage('');
     setSubmitted(false);
   };
+
+  // Formatação de data
+  const formatDate = (dateString: string) => {
+    try {
+      return format(new Date(dateString), 'dd/MM/yyyy', { locale: ptBR });
+    } catch {
+      return dateString;
+    }
+  };
+
+  // Status do cliente
+  const getStatus = (cliente: ClienteVip) => {
+    if (cliente.status === 'vencido') return 'expired';
+    if (cliente.status === 'renovado') return 'renewed';
+    const hoje = new Date();
+    const validade = new Date(cliente.data_validade);
+    if (validade < hoje) return 'expired';
+    return 'active';
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-muted/30 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-muted-foreground">Carregando cartão...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (showQRInput || !cliente) {
+    return (
+      <div className="min-h-screen bg-muted/30 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <QrCode className="w-5 h-5" />
+              Acessar Cartão VIP
+            </CardTitle>
+            <CardDescription>
+              Digite o código do seu cartão ou escaneie o QR Code
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleQRSubmit} className="space-y-4">
+              <div>
+                <Input
+                  placeholder="Digite o código do cartão (ex: VIP-XXXXXXXX)"
+                  value={qrCode}
+                  onChange={(e) => setQrCode(e.target.value)}
+                  className="text-center font-mono"
+                />
+              </div>
+              <Button type="submit" variant="vip" className="w-full" disabled={!qrCode.trim()}>
+                Buscar Cartão
+              </Button>
+              {!isAuthenticated && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => navigate('/login')}
+                >
+                  Ou faça login
+                </Button>
+              )}
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-muted/30">
       {/* Header */}
       <header className="bg-primary py-4">
         <div className="container mx-auto px-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg gradient-vip flex items-center justify-center shadow-vip">
-            <Crown className="w-5 h-5 text-primary" />
+          <div className="w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center shadow-vip bg-background">
+            <img 
+              src="/logovipasi.png" 
+              alt="Cliente VIP" 
+              className="w-full h-full object-contain"
+            />
           </div>
           <div>
             <span className="font-display font-bold text-lg text-primary-foreground">
               Meu Cartão VIP
             </span>
             <p className="text-xs text-primary-foreground/60">
-              Olá, João!
+              Olá, {cliente.nome}!
             </p>
           </div>
         </div>
@@ -64,12 +232,12 @@ const ClientCard = () => {
           className="mb-8"
         >
           <VipCard
-            clientName="João Silva"
-            clientId="VIP-2024-00847"
-            storeName="Premium Motors"
-            validUntil="15/01/2026"
-            status="active"
-            memberSince="15/01/2025"
+            clientName={cliente.nome}
+            clientId={cliente.qr_code_digital}
+            storeName={cliente.loja_nome || 'Loja'}
+            validUntil={formatDate(cliente.data_validade)}
+            status={getStatus(cliente)}
+            memberSince={formatDate(cliente.data_ativacao)}
           />
         </motion.div>
 
@@ -127,6 +295,12 @@ const ClientCard = () => {
                         </p>
                       </div>
 
+                      <Input
+                        placeholder="Título do chamado (opcional)"
+                        value={titulo}
+                        onChange={(e) => setTitulo(e.target.value)}
+                      />
+
                       <Textarea
                         placeholder="Descreva sua solicitação..."
                         value={message}
@@ -138,10 +312,19 @@ const ClientCard = () => {
                         onClick={handleSubmit}
                         variant="vip" 
                         className="w-full"
-                        disabled={!message.trim()}
+                        disabled={!message.trim() || isSubmitting}
                       >
-                        <Send className="w-4 h-4" />
-                        Enviar Chamado
+                        {isSubmitting ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                            Enviando...
+                          </>
+                        ) : (
+                          <>
+                            <Send className="w-4 h-4 mr-2" />
+                            Enviar Chamado
+                          </>
+                        )}
                       </Button>
                     </motion.div>
                   )}

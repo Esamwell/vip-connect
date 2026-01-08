@@ -60,11 +60,22 @@ export function HeroSection() {
             </p>
 
             <div className="flex flex-wrap gap-4 mb-12">
-              <Button variant="hero" size="xl">
+              <Button 
+                variant="hero" 
+                size="xl"
+                onClick={() => window.location.href = '/meu-cartao'}
+              >
                 <Crown className="w-5 h-5" />
                 Acessar Meu Cartão
               </Button>
-              <Button variant="hero-outline" size="xl">
+              <Button 
+                variant="hero-outline" 
+                size="xl"
+                onClick={() => {
+                  const element = document.getElementById('beneficios');
+                  element?.scrollIntoView({ behavior: 'smooth' });
+                }}
+              >
                 Conhecer Benefícios
               </Button>
             </div>
