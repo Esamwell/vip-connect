@@ -60,10 +60,12 @@ const ClientCard = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Buscar benefícios disponíveis
-  const loadBeneficios = useCallback(async (clienteId: string) => {
+  const loadBeneficios = useCallback(async (clienteId: string, qrCode?: string) => {
     try {
       setLoadingBeneficios(true);
-      const data = await api.get<any[]>(`/clientes-vip/${clienteId}/beneficios`).catch(() => []);
+      // Se tiver QR code, usar rota pública; caso contrário, usar rota protegida
+      const endpoint = qrCode ? `/clientes-vip/qr/${qrCode}/beneficios` : `/clientes-vip/${clienteId}/beneficios`;
+      const data = await api.get<any[]>(endpoint).catch(() => []);
       setBeneficiosDisponiveis(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Erro ao carregar benefícios:', error);
@@ -108,9 +110,10 @@ const ClientCard = () => {
           
           // Buscar benefícios disponíveis e histórico
           if (data.id) {
-            loadBeneficios(data.id);
-            // Buscar histórico usando QR code para rota pública
             const qrCodeToUse = qrCode || data.qr_code_digital || data.qr_code_fisico || '';
+            // Buscar benefícios usando QR code para rota pública, ou ID para rota protegida
+            loadBeneficios(data.id, qrCodeToUse);
+            // Buscar histórico usando QR code para rota pública
             if (qrCodeToUse && (qrCodeToUse.startsWith('VIP-') || qrCodeToUse.startsWith('FISICO-'))) {
               loadHistoricoResgates(qrCodeToUse);
             }
