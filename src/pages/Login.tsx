@@ -22,12 +22,21 @@ const Login = () => {
     setIsLoading(true);
 
     try {
-      await login(email, password);
+      const response = await login(email, password);
       toast({
         title: 'Login realizado com sucesso!',
         description: 'Bem-vindo de volta!',
       });
-      navigate('/meu-cartao');
+      
+      // Redirecionar baseado no role
+      const role = response.user.role;
+      if (role === 'admin_mt' || role === 'admin_shopping' || role === 'lojista') {
+        navigate('/dashboard');
+      } else if (role === 'parceiro') {
+        navigate('/parceiro/validar');
+      } else {
+        navigate('/meu-cartao');
+      }
     } catch (error: any) {
       toast({
         title: 'Erro ao fazer login',

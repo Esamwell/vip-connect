@@ -49,7 +49,10 @@ class ApiClient {
       const error = await response.json().catch(() => ({
         error: 'Erro ao processar requisição',
       }));
-      throw new Error(error.error || `HTTP ${response.status}`);
+      const errorMessage = error.error || error.message || `HTTP ${response.status}: ${response.statusText}`;
+      const apiError = new Error(errorMessage);
+      (apiError as any).response = { status: response.status, data: error };
+      throw apiError;
     }
 
     return response.json();

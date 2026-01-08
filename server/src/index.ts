@@ -11,6 +11,8 @@ import chamadosRoutes from './routes/chamados';
 import rankingRoutes from './routes/ranking';
 import relatoriosRoutes from './routes/relatorios';
 import renovacaoRoutes from './routes/renovacao';
+import lojasRoutes from './routes/lojas';
+import parceirosRoutes from './routes/parceiros';
 
 // Carregar variáveis de ambiente
 dotenv.config();
@@ -44,6 +46,8 @@ app.use('/api/chamados', chamadosRoutes);
 app.use('/api/ranking', rankingRoutes);
 app.use('/api/relatorios', relatoriosRoutes);
 app.use('/api/renovacao', renovacaoRoutes);
+app.use('/api/lojas', lojasRoutes);
+app.use('/api/parceiros', parceirosRoutes);
 
 // Rota 404
 app.use((req, res) => {

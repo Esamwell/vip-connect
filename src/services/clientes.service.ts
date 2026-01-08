@@ -29,8 +29,14 @@ export interface ClienteVip {
 export const clientesService = {
   /**
    * Busca cliente VIP por ID ou QR Code
+   * Tenta primeiro pela rota pública (QR code), depois pela rota protegida (ID)
    */
   async getByIdOrQR(idOrQR: string): Promise<ClienteVip> {
+    // Se começa com VIP- ou FISICO-, é um QR code - usar rota pública
+    if (idOrQR.startsWith('VIP-') || idOrQR.startsWith('FISICO-')) {
+      return api.get<ClienteVip>(`/clientes-vip/qr/${idOrQR}`);
+    }
+    // Caso contrário, é um ID - usar rota protegida
     return api.get<ClienteVip>(`/clientes-vip/${idOrQR}`);
   },
 

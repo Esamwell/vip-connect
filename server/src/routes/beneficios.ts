@@ -240,5 +240,205 @@ router.get(
   }
 );
 
+/**
+ * GET /api/beneficios/oficiais
+ * Lista todos os benefícios oficiais
+ */
+router.get(
+  '/oficiais',
+  authenticate,
+  authorize('admin_mt', 'admin_shopping', 'parceiro'),
+  async (req, res) => {
+    try {
+      let query = `SELECT bo.*, p.nome as parceiro_nome, p.tipo as parceiro_tipo
+                   FROM beneficios_oficiais bo
+                   JOIN parceiros p ON bo.parceiro_id = p.id
+                   WHERE bo.ativo = true`;
+      const params: any[] = [];
+      
+      // Parceiro só vê seus próprios benefícios
+      if (req.user!.role === 'parceiro') {
+        query += ' AND p.user_id = $1';
+        params.push(req.user!.userId);
+      }
+      
+      query += ' ORDER BY bo.nome ASC';
+      
+      const result = await pool.query(query, params);
+      
+      res.json(result.rows);
+    } catch (error: any) {
+      console.error('Erro ao listar benefícios oficiais:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  }
+);
+
+/**
+ * POST /api/beneficios/oficiais
+ * Cria um novo benefício oficial
+ */
+router.post(
+  '/oficiais',
+  authenticate,
+  authorize('admin_mt', 'admin_shopping'),
+  async (req, res) => {
+    try {
+      const { nome, descricao, parceiro_id } = req.body;
+
+      if (!nome || !parceiro_id) {
+        return res.status(400).json({
+          error: 'Nome e parceiro são obrigatórios',
+        });
+      }
+
+      // Verificar se parceiro existe
+      const parceiroCheck = await pool.query(
+        'SELECT id FROM parceiros WHERE id = $1 AND ativo = true',
+        [parceiro_id]
+      );
+      
+      if (parceiroCheck.rows.length === 0) {
+        return res.status(404).json({
+          error: 'Parceiro não encontrado ou inativo',
+        });
+      }
+
+      // Criar benefício oficial
+      const result = await pool.query(
+        `INSERT INTO beneficios_oficiais (nome, descricao, parceiro_id, ativo)
+         VALUES ($1, $2, $3, true)
+         RETURNING *`,
+        [nome, descricao || null, parceiro_id]
+      );
+
+      res.status(201).json(result.rows[0]);
+    } catch (error: any) {
+      console.error('Erro ao criar benefício oficial:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  }
+);
+
+/**
+ * GET /api/beneficios/loja
+ * Lista todos os benefícios de loja
+ */
+router.get(
+  '/loja',
+  authenticate,
+  authorize('admin_mt', 'admin_shopping', 'lojista'),
+  async (req, res) => {
+    try {
+      let query = `SELECT bl.*, l.nome as loja_nome
+                   FROM beneficios_loja bl
+                   JOIN lojas l ON bl.loja_id = l.id
+                   WHERE bl.ativo = true`;
+      const params: any[] = [];
+      
+      // Lojista só vê benefícios de suas próprias lojas
+      if (req.user!.role === 'lojista') {
+        query += ' AND l.user_id = $1';
+        params.push(req.user!.userId);
+      }
+      
+      query += ' ORDER BY bl.nome ASC';
+      
+      const result = await pool.query(query, params);
+      
+      res.json(result.rows);
+    } catch (error: any) {
+      console.error('Erro ao listar benefícios de loja:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  }
+);
+
+/**
+ * POST /api/beneficios/loja
+ * Cria um novo benefício de loja
+ */
+router.post(
+  '/loja',
+  authenticate,
+  authorize('admin_mt', 'admin_shopping', 'lojista'),
+  async (req, res) => {
+    try {
+      const { nome, descricao, loja_id } = req.body;
+
+      if (!nome) {
+        return res.status(400).json({
+          error: 'Nome é obrigatório',
+        });
+      }
+
+      let lojaId = loja_id;
+
+      // Se é lojista, usar sua própria loja ou validar se a loja pertence a ele
+      if (req.user!.role === 'lojista') {
+        if (loja_id) {
+          // Verificar se a loja pertence ao lojista
+          const lojaCheck = await pool.query(
+            'SELECT id FROM lojas WHERE id = $1 AND user_id = $2',
+            [loja_id, req.user!.userId]
+          );
+          
+          if (lojaCheck.rows.length === 0) {
+            return res.status(403).json({
+              error: 'Você só pode criar benefícios para suas próprias lojas',
+            });
+          }
+        } else {
+          // Buscar primeira loja do lojista
+          const lojaResult = await pool.query(
+            'SELECT id FROM lojas WHERE user_id = $1 AND ativo = true LIMIT 1',
+            [req.user!.userId]
+          );
+          
+          if (lojaResult.rows.length === 0) {
+            return res.status(404).json({
+              error: 'Nenhuma loja encontrada para este usuário',
+            });
+          }
+          
+          lojaId = lojaResult.rows[0].id;
+        }
+      } else {
+        // Admin deve fornecer loja_id
+        if (!loja_id) {
+          return res.status(400).json({
+            error: 'Loja é obrigatória',
+          });
+        }
+        
+        // Verificar se loja existe
+        const lojaCheck = await pool.query(
+          'SELECT id FROM lojas WHERE id = $1 AND ativo = true',
+          [loja_id]
+        );
+        
+        if (lojaCheck.rows.length === 0) {
+          return res.status(404).json({
+            error: 'Loja não encontrada ou inativa',
+          });
+        }
+      }
+
+      // Criar benefício de loja
+      const result = await pool.query(
+        `INSERT INTO beneficios_loja (nome, descricao, loja_id, ativo)
+         VALUES ($1, $2, $3, true)
+         RETURNING *`,
+        [nome, descricao || null, lojaId]
+      );
+
+      res.status(201).json(result.rows[0]);
+    } catch (error: any) {
+      console.error('Erro ao criar benefício de loja:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  }
+);
+
 export default router;
 

@@ -1,6 +1,6 @@
 import { QRCodeSVG } from 'qrcode.react';
 import { motion } from 'framer-motion';
-import { Crown, Calendar, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
+import { Crown, Calendar, CheckCircle2, AlertCircle, Clock, Car } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 interface VipCardProps {
@@ -10,6 +10,10 @@ interface VipCardProps {
   validUntil: string;
   status: 'active' | 'expiring' | 'expired' | 'renewed';
   memberSince: string;
+  veiculoMarca?: string;
+  veiculoModelo?: string;
+  veiculoAno?: number;
+  veiculoPlaca?: string;
 }
 
 const statusConfig = {
@@ -41,7 +45,11 @@ export function VipCard({
   storeName, 
   validUntil, 
   status,
-  memberSince 
+  memberSince,
+  veiculoMarca,
+  veiculoModelo,
+  veiculoAno,
+  veiculoPlaca
 }: VipCardProps) {
   const statusInfo = statusConfig[status];
   const StatusIcon = statusInfo.icon;
@@ -91,6 +99,25 @@ export function VipCard({
           <p className="text-sm text-primary-foreground/60 mt-1">
             Loja: {storeName}
           </p>
+          {/* Veículo Info */}
+          {(veiculoMarca || veiculoModelo || veiculoAno || veiculoPlaca) && (
+            <div className="mt-3 pt-3 border-t border-primary-foreground/20">
+              <div className="flex items-center gap-2 text-primary-foreground/80 mb-2">
+                <Car className="w-4 h-4" />
+                <span className="text-xs font-medium">Veículo</span>
+              </div>
+              <div className="flex flex-wrap gap-2 text-xs text-primary-foreground/90">
+                {veiculoMarca && <span className="font-semibold">{veiculoMarca}</span>}
+                {veiculoModelo && <span>{veiculoModelo}</span>}
+                {veiculoAno && <span>({veiculoAno})</span>}
+                {veiculoPlaca && (
+                  <span className="ml-2 px-2 py-0.5 bg-primary-foreground/20 rounded font-mono">
+                    {veiculoPlaca.toUpperCase()}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* QR Code Section */}
@@ -127,7 +154,7 @@ export function VipCard({
         {/* Card ID */}
         <div className="relative z-10 mt-6 pt-4 border-t border-primary-foreground/10">
           <p className="text-xs text-primary-foreground/40 font-mono tracking-widest">
-            ID: {clientId}
+            QR Code: {clientId}
           </p>
         </div>
       </div>
