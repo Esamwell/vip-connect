@@ -161,16 +161,20 @@ router.get('/qr/:qrCode/beneficios', async (req, res) => {
         p.nome as parceiro_nome,
         l.nome as loja_nome,
         COALESCE(bo.ativo, bl.ativo) as ativo,
-        cb.ativo as alocacao_ativa
+        cb.ativo as alocacao_ativa,
+        cb.resgatado,
+        cb.data_resgate,
+        u.nome as resgatado_por_nome
       FROM clientes_beneficios cb
       LEFT JOIN beneficios_oficiais bo ON cb.beneficio_oficial_id = bo.id AND cb.tipo = 'oficial'
       LEFT JOIN beneficios_loja bl ON cb.beneficio_loja_id = bl.id AND cb.tipo = 'loja'
       LEFT JOIN parceiros p ON bo.parceiro_id = p.id
       LEFT JOIN lojas l ON bl.loja_id = l.id
+      LEFT JOIN users u ON cb.resgatado_por = u.id
       WHERE cb.cliente_vip_id = $1 
         AND cb.ativo = true
         AND (bo.ativo = true OR bl.ativo = true)
-      ORDER BY cb.tipo, nome`,
+      ORDER BY cb.resgatado ASC, cb.tipo, nome`,
       [clienteId]
     );
 
@@ -279,16 +283,20 @@ router.get(
           p.nome as parceiro_nome,
           l.nome as loja_nome,
           COALESCE(bo.ativo, bl.ativo) as ativo,
-          cb.ativo as alocacao_ativa
+          cb.ativo as alocacao_ativa,
+          cb.resgatado,
+          cb.data_resgate,
+          u.nome as resgatado_por_nome
         FROM clientes_beneficios cb
         LEFT JOIN beneficios_oficiais bo ON cb.beneficio_oficial_id = bo.id AND cb.tipo = 'oficial'
         LEFT JOIN beneficios_loja bl ON cb.beneficio_loja_id = bl.id AND cb.tipo = 'loja'
         LEFT JOIN parceiros p ON bo.parceiro_id = p.id
         LEFT JOIN lojas l ON bl.loja_id = l.id
+        LEFT JOIN users u ON cb.resgatado_por = u.id
         WHERE cb.cliente_vip_id = $1 
           AND cb.ativo = true
           AND (bo.ativo = true OR bl.ativo = true)
-        ORDER BY cb.tipo, nome`,
+        ORDER BY cb.resgatado ASC, cb.tipo, nome`,
         [id]
       );
 
@@ -297,6 +305,84 @@ router.get(
       res.json(beneficiosAlocados.rows);
     } catch (error: any) {
       console.error('Erro ao buscar benefícios do cliente:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  }
+);
+
+/**
+ * POST /api/clientes-vip/:id/beneficios/:alocacaoId/resgatar
+ * Marca um benefício como resgatado/inutilizado
+ */
+router.post(
+  '/:id/beneficios/:alocacaoId/resgatar',
+  authenticate,
+  authorize('admin_mt', 'admin_shopping', 'lojista'),
+  async (req, res) => {
+    try {
+      const { id, alocacaoId } = req.params;
+
+      // Verificar se cliente existe
+      const clienteResult = await pool.query(
+        'SELECT id, loja_id FROM clientes_vip WHERE id = $1',
+        [id]
+      );
+
+      if (clienteResult.rows.length === 0) {
+        return res.status(404).json({ error: 'Cliente VIP não encontrado' });
+      }
+
+      const cliente = clienteResult.rows[0];
+
+      // Verificar permissões (lojista só pode resgatar benefícios de seus próprios clientes)
+      if (req.user!.role === 'lojista') {
+        const lojaCheck = await pool.query(
+          'SELECT id FROM lojas WHERE id = $1 AND user_id = $2',
+          [cliente.loja_id, req.user!.userId]
+        );
+
+        if (lojaCheck.rows.length === 0) {
+          return res.status(403).json({
+            error: 'Você não tem permissão para resgatar benefícios deste cliente',
+          });
+        }
+      }
+
+      // Verificar se a alocação existe e pertence ao cliente
+      const alocacaoCheck = await pool.query(
+        'SELECT id, resgatado FROM clientes_beneficios WHERE id = $1 AND cliente_vip_id = $2',
+        [alocacaoId, id]
+      );
+
+      if (alocacaoCheck.rows.length === 0) {
+        return res.status(404).json({ error: 'Alocação de benefício não encontrada' });
+      }
+
+      const alocacao = alocacaoCheck.rows[0];
+
+      // Se já está resgatado, retornar erro
+      if (alocacao.resgatado) {
+        return res.status(400).json({ error: 'Este benefício já foi resgatado' });
+      }
+
+      // Marcar como resgatado
+      const result = await pool.query(
+        `UPDATE clientes_beneficios 
+         SET resgatado = true, 
+             data_resgate = CURRENT_TIMESTAMP,
+             resgatado_por = $1,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $2
+         RETURNING *`,
+        [req.user!.userId, alocacaoId]
+      );
+
+      res.json({
+        message: 'Benefício marcado como resgatado com sucesso',
+        alocacao: result.rows[0],
+      });
+    } catch (error: any) {
+      console.error('Erro ao resgatar benefício:', error);
       res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
@@ -831,25 +917,60 @@ router.get(
         }
       }
 
-      // Buscar validações
+      // Buscar validações feitas por parceiros
       const validacoesResult = await pool.query(
         `SELECT 
           vb.id,
+          vb.data_validacao as data_resgate,
           vb.data_validacao,
           vb.tipo,
           p.nome as parceiro_nome,
-          COALESCE(bo.nome, bl.nome) as beneficio_nome
+          COALESCE(bo.nome, bl.nome) as beneficio_nome,
+          'validacao' as origem,
+          NULL as resgatado_por_nome
         FROM validacoes_beneficios vb
         JOIN parceiros p ON vb.parceiro_id = p.id
         LEFT JOIN beneficios_oficiais bo ON vb.beneficio_oficial_id = bo.id
         LEFT JOIN beneficios_loja bl ON vb.beneficio_loja_id = bl.id
         WHERE vb.cliente_vip_id = $1
-        ORDER BY vb.data_validacao DESC
-        LIMIT 50`,
+        ORDER BY vb.data_validacao DESC`,
         [id]
       );
 
-      res.json(validacoesResult.rows);
+      // Buscar benefícios resgatados pelo admin/lojista
+      const beneficiosResgatados = await pool.query(
+        `SELECT 
+          cb.id,
+          cb.data_resgate,
+          cb.data_resgate as data_validacao,
+          cb.tipo,
+          p.nome as parceiro_nome,
+          COALESCE(bo.nome, bl.nome) as beneficio_nome,
+          'resgate_admin' as origem,
+          u.nome as resgatado_por_nome
+        FROM clientes_beneficios cb
+        LEFT JOIN beneficios_oficiais bo ON cb.beneficio_oficial_id = bo.id AND cb.tipo = 'oficial'
+        LEFT JOIN beneficios_loja bl ON cb.beneficio_loja_id = bl.id AND cb.tipo = 'loja'
+        LEFT JOIN parceiros p ON bo.parceiro_id = p.id
+        LEFT JOIN users u ON cb.resgatado_por = u.id
+        WHERE cb.cliente_vip_id = $1 
+          AND cb.resgatado = true
+          AND cb.data_resgate IS NOT NULL
+        ORDER BY cb.data_resgate DESC`,
+        [id]
+      );
+
+      // Combinar resultados e ordenar por data (mais recente primeiro)
+      const historico = [
+        ...validacoesResult.rows,
+        ...beneficiosResgatados.rows,
+      ].sort((a, b) => {
+        const dateA = new Date(a.data_resgate || a.data_validacao).getTime();
+        const dateB = new Date(b.data_resgate || b.data_validacao).getTime();
+        return dateB - dateA; // Mais recente primeiro
+      }).slice(0, 50); // Limitar a 50 registros
+
+      res.json(historico);
     } catch (error: any) {
       console.error('Erro ao buscar validações do cliente:', error);
       res.status(500).json({ error: 'Erro interno do servidor' });

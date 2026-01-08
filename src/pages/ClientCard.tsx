@@ -46,6 +46,7 @@ const ClientCard = () => {
   
   const [cliente, setCliente] = useState<ClienteVip | null>(null);
   const [beneficiosDisponiveis, setBeneficiosDisponiveis] = useState<any[]>([]);
+  const [beneficiosResgatados, setBeneficiosResgatados] = useState<any[]>([]);
   const [historicoResgates, setHistoricoResgates] = useState<any[]>([]);
   const [loadingBeneficios, setLoadingBeneficios] = useState(false);
   const [loadingHistorico, setLoadingHistorico] = useState(false);
@@ -66,10 +67,18 @@ const ClientCard = () => {
       // Se tiver QR code, usar rota pública; caso contrário, usar rota protegida
       const endpoint = qrCode ? `/clientes-vip/qr/${qrCode}/beneficios` : `/clientes-vip/${clienteId}/beneficios`;
       const data = await api.get<any[]>(endpoint).catch(() => []);
-      setBeneficiosDisponiveis(Array.isArray(data) ? data : []);
+      const beneficios = Array.isArray(data) ? data : [];
+      
+      // Separar benefícios disponíveis (não resgatados) dos resgatados
+      const disponiveis = beneficios.filter((b: any) => !b.resgatado);
+      const resgatados = beneficios.filter((b: any) => b.resgatado === true);
+      
+      setBeneficiosDisponiveis(disponiveis);
+      setBeneficiosResgatados(resgatados);
     } catch (error) {
       console.error('Erro ao carregar benefícios:', error);
       setBeneficiosDisponiveis([]);
+      setBeneficiosResgatados([]);
     } finally {
       setLoadingBeneficios(false);
     }
@@ -393,12 +402,12 @@ const ClientCard = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {loadingHistorico ? (
+              {loadingHistorico || loadingBeneficios ? (
                 <div className="py-8 text-center">
                   <Loader2 className="w-6 h-6 animate-spin text-primary mx-auto mb-2" />
                   <p className="text-sm text-muted-foreground">Carregando histórico...</p>
                 </div>
-              ) : historicoResgates.length === 0 ? (
+              ) : beneficiosResgatados.length === 0 && historicoResgates.length === 0 ? (
                 <div className="py-8 text-center text-muted-foreground">
                   <History className="w-12 h-12 mx-auto mb-3 opacity-50" />
                   <p className="text-sm">Nenhum benefício resgatado ainda.</p>
@@ -406,6 +415,62 @@ const ClientCard = () => {
                 </div>
               ) : (
                 <div className="space-y-3">
+                  {/* Benefícios resgatados pelo admin/lojista */}
+                  {beneficiosResgatados.map((beneficio) => (
+                    <div
+                      key={beneficio.alocacao_id || beneficio.id}
+                      className="p-4 rounded-xl border border-border bg-card/50 hover:border-success/50 transition-all opacity-75"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <CheckCircle className="w-4 h-4 text-success" />
+                            <h4 className="font-semibold text-sm line-through text-muted-foreground">{beneficio.nome}</h4>
+                            <Badge variant="outline" className="text-xs bg-gray-100 text-gray-600">
+                              Resgatado
+                            </Badge>
+                            {beneficio.tipo && (
+                              <Badge variant={beneficio.tipo === 'oficial' ? 'default' : 'outline'} className="text-xs">
+                                {beneficio.tipo === 'oficial' ? 'Oficial' : 'Loja'}
+                              </Badge>
+                            )}
+                          </div>
+                          {beneficio.descricao && (
+                            <p className="text-sm text-muted-foreground mb-2 line-through">{beneficio.descricao}</p>
+                          )}
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+                            {beneficio.parceiro_nome && (
+                              <div className="flex items-center gap-1">
+                                <MapPin className="w-3 h-3" />
+                                <span>Parceiro: <strong>{beneficio.parceiro_nome}</strong></span>
+                              </div>
+                            )}
+                            {beneficio.loja_nome && (
+                              <div className="flex items-center gap-1">
+                                <Store className="w-3 h-3" />
+                                <span>Loja: <strong>{beneficio.loja_nome}</strong></span>
+                              </div>
+                            )}
+                          </div>
+                          {beneficio.data_resgate && (
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <Calendar className="w-3 h-3" />
+                              <span>
+                                Resgatado em: <strong>
+                                  {format(new Date(beneficio.data_resgate), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}
+                                </strong>
+                                {beneficio.resgatado_por_nome && (
+                                  <span className="ml-1">por {beneficio.resgatado_por_nome}</span>
+                                )}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {/* Validações feitas pelos parceiros */}
                   {historicoResgates.map((resgate) => (
                     <div
                       key={resgate.id}
@@ -417,13 +482,13 @@ const ClientCard = () => {
                             <CheckCircle className="w-4 h-4 text-success" />
                             <h4 className="font-semibold text-sm">{resgate.beneficio_nome || 'Benefício Resgatado'}</h4>
                             <Badge variant="success" className="text-xs">
-                              Resgatado
+                              Validado
                             </Badge>
                           </div>
                           {resgate.parceiro_nome && (
                             <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
                               <MapPin className="w-3 h-3" />
-                              <span>Resgatado em: <strong>{resgate.parceiro_nome}</strong></span>
+                              <span>Validado em: <strong>{resgate.parceiro_nome}</strong></span>
                             </div>
                           )}
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">

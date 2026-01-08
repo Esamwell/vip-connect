@@ -15,7 +15,7 @@ import { api } from '@/services/api';
 import { ClienteVip } from '@/services/clientes.service';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale/pt-BR';
-import { Crown, Calendar, Clock, Gift, CheckCircle2, Car, Plus, Loader2 } from 'lucide-react';
+import { Crown, Calendar, Clock, Gift, CheckCircle2, Car, Plus, Loader2, XCircle, CheckCircle } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -27,20 +27,27 @@ interface ClienteVIPModalProps {
 
 interface BeneficioDisponivel {
   id: string;
+  alocacao_id: string;
   nome: string;
   descricao?: string;
   tipo: 'oficial' | 'loja';
   parceiro_nome?: string;
   loja_nome?: string;
   ativo: boolean;
+  resgatado?: boolean;
+  data_resgate?: string;
+  resgatado_por_nome?: string;
 }
 
 interface ValidacaoBeneficio {
   id: string;
   beneficio_nome: string;
-  parceiro_nome: string;
+  parceiro_nome?: string;
   data_validacao: string;
+  data_resgate?: string;
   tipo: 'oficial' | 'loja';
+  origem?: 'validacao' | 'resgate_admin';
+  resgatado_por_nome?: string;
 }
 
 interface BeneficioParaAlocar {
@@ -150,6 +157,29 @@ export function ClienteVIPModal({ open, onOpenChange, clienteId }: ClienteVIPMod
       toast({
         title: 'Erro',
         description: 'Não foi possível carregar os benefícios disponíveis.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleResgatarBeneficio = async (alocacaoId: string, nomeBeneficio: string) => {
+    if (!clienteId) return;
+
+    try {
+      await api.post(`/clientes-vip/${clienteId}/beneficios/${alocacaoId}/resgatar`);
+
+      // Recarregar dados do cliente para atualizar lista de benefícios
+      await loadClienteData();
+
+      toast({
+        title: 'Sucesso!',
+        description: `Benefício "${nomeBeneficio}" marcado como resgatado.`,
+      });
+    } catch (error: any) {
+      console.error('Erro ao resgatar benefício:', error);
+      toast({
+        title: 'Erro',
+        description: error.response?.data?.error || 'Não foi possível resgatar o benefício.',
         variant: 'destructive',
       });
     }
@@ -404,36 +434,74 @@ export function ClienteVIPModal({ open, onOpenChange, clienteId }: ClienteVIPMod
                 </Card>
               ) : (
                 <div className="space-y-3">
-                  {beneficiosDisponiveis.map((beneficio) => (
-                    <Card key={beneficio.id}>
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <Gift className="w-5 h-5 text-primary" />
-                              <h4 className="font-semibold text-lg">{beneficio.nome}</h4>
-                              <Badge variant={beneficio.tipo === 'oficial' ? 'default' : 'outline'}>
-                                {beneficio.tipo === 'oficial' ? 'Oficial' : 'Loja'}
-                              </Badge>
+                  {beneficiosDisponiveis.map((beneficio) => {
+                    const isResgatado = beneficio.resgatado === true;
+                    const dataResgate = beneficio.data_resgate 
+                      ? format(new Date(beneficio.data_resgate), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
+                      : null;
+
+                    return (
+                      <Card key={beneficio.id} className={isResgatado ? 'opacity-75 border-gray-300' : ''}>
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                {isResgatado ? (
+                                  <XCircle className="w-5 h-5 text-gray-400" />
+                                ) : (
+                                  <Gift className="w-5 h-5 text-primary" />
+                                )}
+                                <h4 className={`font-semibold text-lg ${isResgatado ? 'text-gray-500 line-through' : ''}`}>
+                                  {beneficio.nome}
+                                </h4>
+                                <Badge variant={beneficio.tipo === 'oficial' ? 'default' : 'outline'}>
+                                  {beneficio.tipo === 'oficial' ? 'Oficial' : 'Loja'}
+                                </Badge>
+                                {isResgatado && (
+                                  <Badge variant="outline" className="bg-gray-100 text-gray-600">
+                                    <CheckCircle className="w-3 h-3 mr-1" />
+                                    Resgatado
+                                  </Badge>
+                                )}
+                              </div>
+                              {beneficio.descricao && (
+                                <p className={`text-sm mb-2 ${isResgatado ? 'text-gray-400' : 'text-muted-foreground'}`}>
+                                  {beneficio.descricao}
+                                </p>
+                              )}
+                              <div className="flex gap-4 text-xs text-muted-foreground">
+                                {beneficio.tipo === 'oficial' && beneficio.parceiro_nome && (
+                                  <span>Parceiro: {beneficio.parceiro_nome}</span>
+                                )}
+                                {beneficio.tipo === 'loja' && beneficio.loja_nome && (
+                                  <span>Loja: {beneficio.loja_nome}</span>
+                                )}
+                              </div>
+                              {isResgatado && dataResgate && (
+                                <div className="mt-2 text-xs text-gray-500">
+                                  <span className="font-medium">Resgatado em:</span> {dataResgate}
+                                  {beneficio.resgatado_por_nome && (
+                                    <span className="ml-2">por {beneficio.resgatado_por_nome}</span>
+                                  )}
+                                </div>
+                              )}
                             </div>
-                            {beneficio.descricao && (
-                              <p className="text-sm text-muted-foreground mb-2">
-                                {beneficio.descricao}
-                              </p>
+                            {!isResgatado && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleResgatarBeneficio(beneficio.alocacao_id, beneficio.nome)}
+                                className="flex-shrink-0"
+                              >
+                                <XCircle className="w-4 h-4 mr-2" />
+                                Resgatar
+                              </Button>
                             )}
-                            <div className="flex gap-4 text-xs text-muted-foreground">
-                              {beneficio.tipo === 'oficial' && beneficio.parceiro_nome && (
-                                <span>Parceiro: {beneficio.parceiro_nome}</span>
-                              )}
-                              {beneficio.tipo === 'loja' && beneficio.loja_nome && (
-                                <span>Loja: {beneficio.loja_nome}</span>
-                              )}
-                            </div>
                           </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </div>
               )}
 
@@ -450,24 +518,52 @@ export function ClienteVIPModal({ open, onOpenChange, clienteId }: ClienteVIPMod
                 </Card>
               ) : (
                 <div className="space-y-3">
-                  {validacoes.map((validacao) => (
-                    <Card key={validacao.id}>
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <h4 className="font-semibold mb-1">{validacao.beneficio_nome}</h4>
-                            <p className="text-sm text-muted-foreground">
-                              Resgatado em {formatarData(validacao.data_validacao)} • Parceiro:{' '}
-                              {validacao.parceiro_nome}
-                            </p>
+                  {validacoes.map((validacao) => {
+                    const dataResgate = validacao.data_resgate || validacao.data_validacao;
+                    const isResgateAdmin = validacao.origem === 'resgate_admin';
+                    
+                    return (
+                      <Card key={validacao.id} className={isResgateAdmin ? 'opacity-90 border-gray-300' : ''}>
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <h4 className="font-semibold text-lg">{validacao.beneficio_nome}</h4>
+                                <Badge variant={validacao.tipo === 'oficial' ? 'default' : 'outline'}>
+                                  {validacao.tipo === 'oficial' ? 'Oficial' : 'Loja'}
+                                </Badge>
+                                {isResgateAdmin && (
+                                  <Badge variant="outline" className="bg-gray-100 text-gray-600 text-xs">
+                                    Resgatado pelo Admin
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-sm text-muted-foreground">
+                                {isResgateAdmin ? (
+                                  <>
+                                    Resgatado em {formatarData(dataResgate)}
+                                    {validacao.resgatado_por_nome && (
+                                      <> • Por: <strong>{validacao.resgatado_por_nome}</strong></>
+                                    )}
+                                    {validacao.parceiro_nome && (
+                                      <> • Parceiro: {validacao.parceiro_nome}</>
+                                    )}
+                                  </>
+                                ) : (
+                                  <>
+                                    Validado em {formatarData(dataResgate)}
+                                    {validacao.parceiro_nome && (
+                                      <> • Parceiro: <strong>{validacao.parceiro_nome}</strong></>
+                                    )}
+                                  </>
+                                )}
+                              </p>
+                            </div>
                           </div>
-                          <Badge variant={validacao.tipo === 'oficial' ? 'default' : 'outline'}>
-                            {validacao.tipo === 'oficial' ? 'Oficial' : 'Loja'}
-                          </Badge>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </div>
               )}
             </div>
