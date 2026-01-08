@@ -240,7 +240,7 @@ router.get('/qr/:qrCode/validacoes', async (req, res) => {
 router.get(
   '/:id/beneficios',
   authenticate,
-  authorize('admin_mt', 'admin_shopping', 'lojista'),
+  authorize('admin_mt', 'admin_shopping', 'lojista', 'parceiro'),
   async (req, res) => {
     try {
       const { id } = req.params;
@@ -271,10 +271,43 @@ router.get(
         }
       }
 
+      // Verificar permissões (parceiro só vê clientes que têm benefícios vinculados a ele)
+      if (req.user!.role === 'parceiro') {
+        const parceiroResult = await pool.query(
+          'SELECT id FROM parceiros WHERE user_id = $1 AND ativo = true',
+          [req.user!.userId]
+        );
+
+        if (parceiroResult.rows.length === 0) {
+          return res.status(403).json({
+            error: 'Parceiro não encontrado',
+          });
+        }
+
+        const parceiroId = parceiroResult.rows[0].id;
+
+        // Verificar se o cliente tem algum benefício oficial vinculado a este parceiro
+        const clienteParceiroCheck = await pool.query(
+          `SELECT 1 
+           FROM clientes_beneficios cb
+           INNER JOIN beneficios_oficiais bo ON cb.beneficio_oficial_id = bo.id AND cb.tipo = 'oficial'
+           WHERE cb.cliente_vip_id = $1 AND bo.parceiro_id = $2 AND cb.ativo = true AND bo.ativo = true
+           LIMIT 1`,
+          [id, parceiroId]
+        );
+
+        if (clienteParceiroCheck.rows.length === 0) {
+          return res.status(403).json({
+            error: 'Você não tem permissão para ver este cliente',
+          });
+        }
+      }
+
       // Buscar APENAS benefícios que foram explicitamente alocados ao cliente
       // Benefícios não aparecem automaticamente - devem ser alocados manualmente
-      const beneficiosAlocados = await pool.query(
-        `SELECT 
+      // Se for parceiro, filtrar apenas benefícios oficiais vinculados a ele
+      let beneficiosQuery = `
+        SELECT 
           cb.id as alocacao_id,
           COALESCE(bo.id, bl.id) as id,
           COALESCE(bo.nome, bl.nome) as nome,
@@ -296,9 +329,27 @@ router.get(
         WHERE cb.cliente_vip_id = $1 
           AND cb.ativo = true
           AND (bo.ativo = true OR bl.ativo = true)
-        ORDER BY cb.resgatado ASC, cb.tipo, nome`,
-        [id]
-      );
+      `;
+
+      const queryParams: any[] = [id];
+
+      // Se for parceiro, filtrar apenas benefícios oficiais vinculados a ele
+      if (req.user!.role === 'parceiro') {
+        const parceiroResult = await pool.query(
+          'SELECT id FROM parceiros WHERE user_id = $1 AND ativo = true',
+          [req.user!.userId]
+        );
+        
+        if (parceiroResult.rows.length > 0) {
+          const parceiroId = parceiroResult.rows[0].id;
+          beneficiosQuery += ` AND (bo.parceiro_id = $2 OR cb.tipo = 'loja')`;
+          queryParams.push(parceiroId);
+        }
+      }
+
+      beneficiosQuery += ` ORDER BY cb.resgatado ASC, cb.tipo, nome`;
+
+      const beneficiosAlocados = await pool.query(beneficiosQuery, queryParams);
 
       // Retornar apenas benefícios que foram explicitamente alocados
       // Se não houver benefícios alocados, retorna array vazio
@@ -461,7 +512,7 @@ router.post(
           // Verificar se o benefício existe e está ativo
           if (tipo === 'oficial') {
             const beneficioCheck = await pool.query(
-              'SELECT id FROM beneficios_oficiais WHERE id = $1 AND ativo = true',
+              'SELECT id, parceiro_id, nome FROM beneficios_oficiais WHERE id = $1 AND ativo = true',
               [beneficio_oficial_id]
             );
 
@@ -469,6 +520,14 @@ router.post(
               erros.push({ beneficio, erro: 'Benefício oficial não encontrado ou inativo' });
               continue;
             }
+            
+            // Log para debug
+            console.log(`[DEBUG] Alocando benefício oficial:`, {
+              beneficio_id: beneficio_oficial_id,
+              beneficio_nome: beneficioCheck.rows[0].nome,
+              parceiro_id: beneficioCheck.rows[0].parceiro_id,
+              cliente_vip_id: id
+            });
           } else {
             const beneficioCheck = await pool.query(
               'SELECT id FROM beneficios_loja WHERE id = $1 AND ativo = true',
@@ -504,6 +563,8 @@ router.post(
                RETURNING *`,
               [req.user!.userId, existingCheck.rows[0].id]
             );
+            
+            console.log(`[DEBUG] Alocação atualizada:`, result.rows[0]);
           } else {
             // Inserir nova alocação
             const insertQuery = tipo === 'oficial'
@@ -531,6 +592,8 @@ router.post(
               : [id, beneficio_loja_id, tipo, req.user!.userId];
             
             result = await pool.query(insertQuery, params);
+            
+            console.log(`[DEBUG] Nova alocação criada:`, result.rows[0]);
           }
 
           beneficiosAlocados.push(result.rows[0]);
@@ -886,7 +949,7 @@ router.delete(
 router.get(
   '/:id/validacoes',
   authenticate,
-  authorize('admin_mt', 'admin_shopping', 'lojista'),
+  authorize('admin_mt', 'admin_shopping', 'lojista', 'parceiro'),
   async (req, res) => {
     try {
       const { id } = req.params;
@@ -917,9 +980,42 @@ router.get(
         }
       }
 
+      // Verificar permissões (parceiro só vê clientes que têm benefícios vinculados a ele)
+      let parceiroId: string | null = null;
+      if (req.user!.role === 'parceiro') {
+        const parceiroResult = await pool.query(
+          'SELECT id FROM parceiros WHERE user_id = $1 AND ativo = true',
+          [req.user!.userId]
+        );
+
+        if (parceiroResult.rows.length === 0) {
+          return res.status(403).json({
+            error: 'Parceiro não encontrado',
+          });
+        }
+
+        parceiroId = parceiroResult.rows[0].id;
+
+        // Verificar se o cliente tem algum benefício oficial vinculado a este parceiro
+        const clienteParceiroCheck = await pool.query(
+          `SELECT 1 
+           FROM clientes_beneficios cb
+           INNER JOIN beneficios_oficiais bo ON cb.beneficio_oficial_id = bo.id AND cb.tipo = 'oficial'
+           WHERE cb.cliente_vip_id = $1 AND bo.parceiro_id = $2 AND cb.ativo = true AND bo.ativo = true
+           LIMIT 1`,
+          [id, parceiroId]
+        );
+
+        if (clienteParceiroCheck.rows.length === 0) {
+          return res.status(403).json({
+            error: 'Você não tem permissão para ver este cliente',
+          });
+        }
+      }
+
       // Buscar validações feitas por parceiros
-      const validacoesResult = await pool.query(
-        `SELECT 
+      let validacoesQuery = `
+        SELECT 
           vb.id,
           vb.data_validacao as data_resgate,
           vb.data_validacao,
@@ -933,13 +1029,25 @@ router.get(
         LEFT JOIN beneficios_oficiais bo ON vb.beneficio_oficial_id = bo.id
         LEFT JOIN beneficios_loja bl ON vb.beneficio_loja_id = bl.id
         WHERE vb.cliente_vip_id = $1
-        ORDER BY vb.data_validacao DESC`,
-        [id]
-      );
+      `;
 
-      // Buscar benefícios resgatados pelo admin/lojista
-      const beneficiosResgatados = await pool.query(
-        `SELECT 
+      const validacoesParams: any[] = [id];
+
+      // Se for parceiro, filtrar apenas validações relacionadas aos benefícios dele
+      if (req.user!.role === 'parceiro' && parceiroId) {
+        validacoesQuery += ` AND (vb.parceiro_id = $2 OR bo.parceiro_id = $2)`;
+        validacoesParams.push(parceiroId);
+      }
+
+      validacoesQuery += ` ORDER BY vb.data_validacao DESC`;
+
+      const validacoesResult = await pool.query(validacoesQuery, validacoesParams);
+
+      console.log(`[DEBUG] Validações encontradas para cliente ${id}:`, validacoesResult.rows.length);
+
+      // Buscar benefícios resgatados pelo admin/lojista ou parceiro
+      let beneficiosResgatadosQuery = `
+        SELECT 
           cb.id,
           cb.data_resgate,
           cb.data_resgate as data_validacao,
@@ -956,9 +1064,22 @@ router.get(
         WHERE cb.cliente_vip_id = $1 
           AND cb.resgatado = true
           AND cb.data_resgate IS NOT NULL
-        ORDER BY cb.data_resgate DESC`,
-        [id]
-      );
+      `;
+
+      const beneficiosResgatadosParams: any[] = [id];
+
+      // Se for parceiro, filtrar apenas benefícios oficiais vinculados a ele
+      if (req.user!.role === 'parceiro' && parceiroId) {
+        beneficiosResgatadosQuery += ` AND (bo.parceiro_id = $2 OR cb.tipo = 'loja')`;
+        beneficiosResgatadosParams.push(parceiroId);
+      }
+
+      beneficiosResgatadosQuery += ` ORDER BY cb.data_resgate DESC`;
+
+      const beneficiosResgatados = await pool.query(beneficiosResgatadosQuery, beneficiosResgatadosParams);
+
+      console.log(`[DEBUG] Benefícios resgatados encontrados para cliente ${id}:`, beneficiosResgatados.rows.length);
+      console.log(`[DEBUG] Detalhes dos benefícios resgatados:`, JSON.stringify(beneficiosResgatados.rows, null, 2));
 
       // Combinar resultados e ordenar por data (mais recente primeiro)
       const historico = [
@@ -969,6 +1090,8 @@ router.get(
         const dateB = new Date(b.data_resgate || b.data_validacao).getTime();
         return dateB - dateA; // Mais recente primeiro
       }).slice(0, 50); // Limitar a 50 registros
+
+      console.log(`[DEBUG] Histórico combinado para cliente ${id}:`, historico.length, 'registros');
 
       res.json(historico);
     } catch (error: any) {

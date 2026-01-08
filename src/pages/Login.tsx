@@ -33,7 +33,7 @@ const Login = () => {
       if (role === 'admin_mt' || role === 'admin_shopping' || role === 'lojista') {
         navigate('/dashboard');
       } else if (role === 'parceiro') {
-        navigate('/parceiro/validar');
+        navigate('/parceiro/dashboard');
       } else {
         navigate('/meu-cartao');
       }

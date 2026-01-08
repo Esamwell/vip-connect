@@ -120,6 +120,48 @@ router.post(
         tipoBeneficio = 'oficial';
       }
 
+      // Verificar se o benefício está alocado ao cliente e marcar como resgatado
+      let alocacaoId: string | null = null;
+      if (tipoBeneficio === 'oficial') {
+        const alocacaoCheck = await pool.query(
+          'SELECT id FROM clientes_beneficios WHERE cliente_vip_id = $1 AND beneficio_oficial_id = $2 AND tipo = $3 AND ativo = true',
+          [cliente.id, beneficioId, tipoBeneficio]
+        );
+        
+        if (alocacaoCheck.rows.length > 0) {
+          alocacaoId = alocacaoCheck.rows[0].id;
+          // Marcar como resgatado na tabela clientes_beneficios
+          await pool.query(
+            `UPDATE clientes_beneficios 
+             SET resgatado = true, 
+                 data_resgate = CURRENT_TIMESTAMP,
+                 resgatado_por = $1,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id = $2`,
+            [req.user!.userId, alocacaoId]
+          );
+        }
+      } else {
+        const alocacaoCheck = await pool.query(
+          'SELECT id FROM clientes_beneficios WHERE cliente_vip_id = $1 AND beneficio_loja_id = $2 AND tipo = $3 AND ativo = true',
+          [cliente.id, beneficioId, tipoBeneficio]
+        );
+        
+        if (alocacaoCheck.rows.length > 0) {
+          alocacaoId = alocacaoCheck.rows[0].id;
+          // Marcar como resgatado na tabela clientes_beneficios
+          await pool.query(
+            `UPDATE clientes_beneficios 
+             SET resgatado = true, 
+                 data_resgate = CURRENT_TIMESTAMP,
+                 resgatado_por = $1,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id = $2`,
+            [req.user!.userId, alocacaoId]
+          );
+        }
+      }
+
       // Registrar validação
       const validacaoResult = await pool.query(
         `INSERT INTO validacoes_beneficios (
@@ -243,6 +285,7 @@ router.get(
 /**
  * GET /api/beneficios/oficiais
  * Lista todos os benefícios oficiais
+ * Parceiro vê apenas seus próprios benefícios
  */
 router.get(
   '/oficiais',
@@ -277,31 +320,58 @@ router.get(
 /**
  * POST /api/beneficios/oficiais
  * Cria um novo benefício oficial
+ * Admin_mt e parceiros podem criar benefícios oficiais
+ * Parceiros só podem criar para si mesmos
  */
 router.post(
   '/oficiais',
   authenticate,
-  authorize('admin_mt', 'admin_shopping'),
+  authorize('admin_mt', 'parceiro'),
   async (req, res) => {
     try {
       const { nome, descricao, parceiro_id } = req.body;
 
-      if (!nome || !parceiro_id) {
+      if (!nome) {
         return res.status(400).json({
-          error: 'Nome e parceiro são obrigatórios',
+          error: 'Nome é obrigatório',
         });
       }
 
-      // Verificar se parceiro existe
-      const parceiroCheck = await pool.query(
-        'SELECT id FROM parceiros WHERE id = $1 AND ativo = true',
-        [parceiro_id]
-      );
-      
-      if (parceiroCheck.rows.length === 0) {
-        return res.status(404).json({
-          error: 'Parceiro não encontrado ou inativo',
-        });
+      let parceiroId = parceiro_id;
+
+      // Se for parceiro, usar seu próprio ID
+      if (req.user!.role === 'parceiro') {
+        const parceiroResult = await pool.query(
+          'SELECT id FROM parceiros WHERE user_id = $1 AND ativo = true',
+          [req.user!.userId]
+        );
+        
+        if (parceiroResult.rows.length === 0) {
+          return res.status(404).json({
+            error: 'Parceiro não encontrado',
+          });
+        }
+        
+        parceiroId = parceiroResult.rows[0].id;
+      } else {
+        // Admin deve fornecer parceiro_id
+        if (!parceiro_id) {
+          return res.status(400).json({
+            error: 'Parceiro é obrigatório',
+          });
+        }
+
+        // Verificar se parceiro existe
+        const parceiroCheck = await pool.query(
+          'SELECT id FROM parceiros WHERE id = $1 AND ativo = true',
+          [parceiro_id]
+        );
+        
+        if (parceiroCheck.rows.length === 0) {
+          return res.status(404).json({
+            error: 'Parceiro não encontrado ou inativo',
+          });
+        }
       }
 
       // Criar benefício oficial
@@ -309,7 +379,7 @@ router.post(
         `INSERT INTO beneficios_oficiais (nome, descricao, parceiro_id, ativo)
          VALUES ($1, $2, $3, true)
          RETURNING *`,
-        [nome, descricao || null, parceiro_id]
+        [nome, descricao || null, parceiroId]
       );
 
       res.status(201).json(result.rows[0]);
@@ -357,11 +427,12 @@ router.get(
 /**
  * POST /api/beneficios/loja
  * Cria um novo benefício de loja
+ * Apenas admin_mt e lojistas podem criar benefícios de loja
  */
 router.post(
   '/loja',
   authenticate,
-  authorize('admin_mt', 'admin_shopping', 'lojista'),
+  authorize('admin_mt', 'lojista'),
   async (req, res) => {
     try {
       const { nome, descricao, loja_id } = req.body;
@@ -435,6 +506,308 @@ router.post(
       res.status(201).json(result.rows[0]);
     } catch (error: any) {
       console.error('Erro ao criar benefício de loja:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  }
+);
+
+/**
+ * PUT /api/beneficios/oficiais/:id
+ * Atualiza um benefício oficial
+ */
+router.put(
+  '/oficiais/:id',
+  authenticate,
+  authorize('admin_mt', 'parceiro'),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { nome, descricao, parceiro_id, ativo } = req.body;
+
+      // Verificar se benefício existe
+      const beneficioCheck = await pool.query(
+        'SELECT parceiro_id FROM beneficios_oficiais WHERE id = $1',
+        [id]
+      );
+
+      if (beneficioCheck.rows.length === 0) {
+        return res.status(404).json({
+          error: 'Benefício não encontrado',
+        });
+      }
+
+      const beneficioAtual = beneficioCheck.rows[0];
+
+      // Se for parceiro, verificar se o benefício pertence a ele
+      if (req.user!.role === 'parceiro') {
+        const parceiroResult = await pool.query(
+          'SELECT id FROM parceiros WHERE user_id = $1 AND ativo = true',
+          [req.user!.userId]
+        );
+        
+        if (parceiroResult.rows.length === 0) {
+          return res.status(404).json({
+            error: 'Parceiro não encontrado',
+          });
+        }
+
+        if (beneficioAtual.parceiro_id !== parceiroResult.rows[0].id) {
+          return res.status(403).json({
+            error: 'Você não tem permissão para editar este benefício',
+          });
+        }
+      }
+
+      let parceiroId = parceiro_id || beneficioAtual.parceiro_id;
+
+      // Se for admin e forneceu parceiro_id, validar
+      if (req.user!.role === 'admin_mt' && parceiro_id) {
+        const parceiroCheck = await pool.query(
+          'SELECT id FROM parceiros WHERE id = $1 AND ativo = true',
+          [parceiro_id]
+        );
+        
+        if (parceiroCheck.rows.length === 0) {
+          return res.status(404).json({
+            error: 'Parceiro não encontrado ou inativo',
+          });
+        }
+        parceiroId = parceiro_id;
+      }
+
+      // Atualizar benefício
+      const result = await pool.query(
+        `UPDATE beneficios_oficiais 
+         SET nome = COALESCE($1, nome),
+             descricao = COALESCE($2, descricao),
+             parceiro_id = COALESCE($3, parceiro_id),
+             ativo = COALESCE($4, ativo),
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $5
+         RETURNING *`,
+        [nome || null, descricao || null, parceiroId || null, ativo !== undefined ? ativo : null, id]
+      );
+
+      res.json(result.rows[0]);
+    } catch (error: any) {
+      console.error('Erro ao atualizar benefício oficial:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  }
+);
+
+/**
+ * DELETE /api/beneficios/oficiais/:id
+ * Exclui (desativa) um benefício oficial
+ */
+router.delete(
+  '/oficiais/:id',
+  authenticate,
+  authorize('admin_mt', 'parceiro'),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      // Verificar se benefício existe
+      const beneficioCheck = await pool.query(
+        'SELECT parceiro_id FROM beneficios_oficiais WHERE id = $1',
+        [id]
+      );
+
+      if (beneficioCheck.rows.length === 0) {
+        return res.status(404).json({
+          error: 'Benefício não encontrado',
+        });
+      }
+
+      const beneficioAtual = beneficioCheck.rows[0];
+
+      // Se for parceiro, verificar se o benefício pertence a ele
+      if (req.user!.role === 'parceiro') {
+        const parceiroResult = await pool.query(
+          'SELECT id FROM parceiros WHERE user_id = $1 AND ativo = true',
+          [req.user!.userId]
+        );
+        
+        if (parceiroResult.rows.length === 0) {
+          return res.status(404).json({
+            error: 'Parceiro não encontrado',
+          });
+        }
+
+        if (beneficioAtual.parceiro_id !== parceiroResult.rows[0].id) {
+          return res.status(403).json({
+            error: 'Você não tem permissão para excluir este benefício',
+          });
+        }
+      }
+
+      // Desativar benefício (soft delete)
+      const result = await pool.query(
+        `UPDATE beneficios_oficiais 
+         SET ativo = false, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1
+         RETURNING *`,
+        [id]
+      );
+
+      res.json({
+        message: 'Benefício excluído com sucesso',
+        beneficio: result.rows[0],
+      });
+    } catch (error: any) {
+      console.error('Erro ao excluir benefício oficial:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  }
+);
+
+/**
+ * PUT /api/beneficios/loja/:id
+ * Atualiza um benefício de loja
+ */
+router.put(
+  '/loja/:id',
+  authenticate,
+  authorize('admin_mt', 'lojista'),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { nome, descricao, loja_id, ativo } = req.body;
+
+      // Verificar se benefício existe
+      const beneficioCheck = await pool.query(
+        'SELECT loja_id FROM beneficios_loja WHERE id = $1',
+        [id]
+      );
+
+      if (beneficioCheck.rows.length === 0) {
+        return res.status(404).json({
+          error: 'Benefício não encontrado',
+        });
+      }
+
+      const beneficioAtual = beneficioCheck.rows[0];
+
+      // Se for lojista, verificar se o benefício pertence à sua loja
+      if (req.user!.role === 'lojista') {
+        const lojaResult = await pool.query(
+          'SELECT id FROM lojas WHERE user_id = $1 AND ativo = true',
+          [req.user!.userId]
+        );
+        
+        if (lojaResult.rows.length === 0) {
+          return res.status(404).json({
+            error: 'Loja não encontrada',
+          });
+        }
+
+        if (beneficioAtual.loja_id !== lojaResult.rows[0].id) {
+          return res.status(403).json({
+            error: 'Você não tem permissão para editar este benefício',
+          });
+        }
+      }
+
+      let lojaId = loja_id || beneficioAtual.loja_id;
+
+      // Se for admin e forneceu loja_id, validar
+      if (req.user!.role === 'admin_mt' && loja_id) {
+        const lojaCheck = await pool.query(
+          'SELECT id FROM lojas WHERE id = $1 AND ativo = true',
+          [loja_id]
+        );
+        
+        if (lojaCheck.rows.length === 0) {
+          return res.status(404).json({
+            error: 'Loja não encontrada ou inativa',
+          });
+        }
+        lojaId = loja_id;
+      }
+
+      // Atualizar benefício
+      const result = await pool.query(
+        `UPDATE beneficios_loja 
+         SET nome = COALESCE($1, nome),
+             descricao = COALESCE($2, descricao),
+             loja_id = COALESCE($3, loja_id),
+             ativo = COALESCE($4, ativo),
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $5
+         RETURNING *`,
+        [nome || null, descricao || null, lojaId || null, ativo !== undefined ? ativo : null, id]
+      );
+
+      res.json(result.rows[0]);
+    } catch (error: any) {
+      console.error('Erro ao atualizar benefício de loja:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  }
+);
+
+/**
+ * DELETE /api/beneficios/loja/:id
+ * Exclui (desativa) um benefício de loja
+ */
+router.delete(
+  '/loja/:id',
+  authenticate,
+  authorize('admin_mt', 'lojista'),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      // Verificar se benefício existe
+      const beneficioCheck = await pool.query(
+        'SELECT loja_id FROM beneficios_loja WHERE id = $1',
+        [id]
+      );
+
+      if (beneficioCheck.rows.length === 0) {
+        return res.status(404).json({
+          error: 'Benefício não encontrado',
+        });
+      }
+
+      const beneficioAtual = beneficioCheck.rows[0];
+
+      // Se for lojista, verificar se o benefício pertence à sua loja
+      if (req.user!.role === 'lojista') {
+        const lojaResult = await pool.query(
+          'SELECT id FROM lojas WHERE user_id = $1 AND ativo = true',
+          [req.user!.userId]
+        );
+        
+        if (lojaResult.rows.length === 0) {
+          return res.status(404).json({
+            error: 'Loja não encontrada',
+          });
+        }
+
+        if (beneficioAtual.loja_id !== lojaResult.rows[0].id) {
+          return res.status(403).json({
+            error: 'Você não tem permissão para excluir este benefício',
+          });
+        }
+      }
+
+      // Desativar benefício (soft delete)
+      const result = await pool.query(
+        `UPDATE beneficios_loja 
+         SET ativo = false, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1
+         RETURNING *`,
+        [id]
+      );
+
+      res.json({
+        message: 'Benefício excluído com sucesso',
+        beneficio: result.rows[0],
+      });
+    } catch (error: any) {
+      console.error('Erro ao excluir benefício de loja:', error);
       res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }

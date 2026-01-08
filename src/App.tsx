@@ -21,6 +21,10 @@ import Lojas from "./pages/dashboard/Lojas";
 import Parceiros from "./pages/dashboard/Parceiros";
 import Beneficios from "./pages/dashboard/Beneficios";
 import Configuracoes from "./pages/dashboard/Configuracoes";
+import { ParceiroDashboardLayout } from "./components/ParceiroDashboardLayout";
+import ParceiroClientes from "./pages/parceiro/Clientes";
+import ParceiroBeneficios from "./pages/parceiro/Beneficios";
+import ParceiroConfiguracoes from "./pages/parceiro/Configuracoes";
 
 const queryClient = new QueryClient();
 
@@ -36,6 +40,48 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/meu-cartao" element={<ClientCard />} />
             <Route path="/parceiro/validar" element={<ValidatePartner />} />
+            
+            {/* Parceiro Dashboard Routes */}
+            <Route
+              path="/parceiro/dashboard"
+              element={
+                <ProtectedRoute allowedRoles={['parceiro']}>
+                  <ParceiroDashboardLayout>
+                    <ParceiroClientes />
+                  </ParceiroDashboardLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/parceiro/dashboard/clientes"
+              element={
+                <ProtectedRoute allowedRoles={['parceiro']}>
+                  <ParceiroDashboardLayout>
+                    <ParceiroClientes />
+                  </ParceiroDashboardLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/parceiro/dashboard/beneficios"
+              element={
+                <ProtectedRoute allowedRoles={['parceiro']}>
+                  <ParceiroDashboardLayout>
+                    <ParceiroBeneficios />
+                  </ParceiroDashboardLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/parceiro/dashboard/configuracoes"
+              element={
+                <ProtectedRoute allowedRoles={['parceiro']}>
+                  <ParceiroDashboardLayout>
+                    <ParceiroConfiguracoes />
+                  </ParceiroDashboardLayout>
+                </ProtectedRoute>
+              }
+            />
             
             {/* Dashboard Routes */}
             <Route

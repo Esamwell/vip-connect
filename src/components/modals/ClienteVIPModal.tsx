@@ -18,6 +18,7 @@ import { ptBR } from 'date-fns/locale/pt-BR';
 import { Crown, Calendar, Clock, Gift, CheckCircle2, Car, Plus, Loader2, XCircle, CheckCircle } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ClienteVIPModalProps {
   open: boolean;
@@ -61,6 +62,7 @@ interface BeneficioParaAlocar {
 }
 
 export function ClienteVIPModal({ open, onOpenChange, clienteId }: ClienteVIPModalProps) {
+  const { user } = useAuth();
   const [cliente, setCliente] = useState<ClienteVip | null>(null);
   const [beneficiosDisponiveis, setBeneficiosDisponiveis] = useState<BeneficioDisponivel[]>([]);
   const [validacoes, setValidacoes] = useState<ValidacaoBeneficio[]>([]);
@@ -133,11 +135,23 @@ export function ClienteVIPModal({ open, onOpenChange, clienteId }: ClienteVIPMod
     if (!cliente) return;
     
     try {
-      // Buscar todos os benefícios oficiais e de loja
-      const [beneficiosOficiais, beneficiosLoja] = await Promise.all([
+      // Se for parceiro, não carregar benefícios de loja (não tem permissão)
+      const isParceiro = user?.role === 'parceiro';
+      
+      const promises: Promise<any>[] = [
         api.get<BeneficioParaAlocar[]>('/beneficios/oficiais').catch(() => []),
-        api.get<BeneficioParaAlocar[]>('/beneficios/loja').catch(() => []),
-      ]);
+      ];
+
+      // Só carregar benefícios de loja se não for parceiro
+      if (!isParceiro) {
+        promises.push(
+          api.get<BeneficioParaAlocar[]>('/beneficios/loja').catch(() => [])
+        );
+      }
+
+      const results = await Promise.all(promises);
+      const beneficiosOficiais = results[0] || [];
+      const beneficiosLoja = isParceiro ? [] : (results[1] || []);
 
       // Combinar todos os benefícios
       const todos = [
@@ -402,34 +416,38 @@ export function ClienteVIPModal({ open, onOpenChange, clienteId }: ClienteVIPMod
           <TabsContent value="beneficios" className="space-y-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Benefícios Disponíveis para Resgate</h3>
-              <Button 
-                onClick={() => {
-                  loadTodosBeneficios();
-                  setShowAlocarModal(true);
-                }}
-                size="sm"
-                variant="default"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Alocar Benefícios
-              </Button>
+              {user?.role !== 'parceiro' && (
+                <Button 
+                  onClick={() => {
+                    loadTodosBeneficios();
+                    setShowAlocarModal(true);
+                  }}
+                  size="sm"
+                  variant="default"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Alocar Benefícios
+                </Button>
+              )}
             </div>
             {beneficiosDisponiveis.length === 0 ? (
                 <Card>
                   <CardContent className="py-8 text-center text-muted-foreground">
                     <Gift className="w-12 h-12 mx-auto mb-3 opacity-50" />
                     <p className="mb-2">Nenhum benefício disponível no momento.</p>
-                    <Button 
-                      onClick={() => {
-                        loadTodosBeneficios();
-                        setShowAlocarModal(true);
-                      }}
-                      variant="outline"
-                      size="sm"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Alocar Benefícios
-                    </Button>
+                    {user?.role !== 'parceiro' && (
+                      <Button 
+                        onClick={() => {
+                          loadTodosBeneficios();
+                          setShowAlocarModal(true);
+                        }}
+                        variant="outline"
+                        size="sm"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Alocar Benefícios
+                      </Button>
+                    )}
                   </CardContent>
                 </Card>
               ) : (
