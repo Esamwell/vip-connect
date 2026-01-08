@@ -69,8 +69,45 @@ router.get(
 );
 
 /**
+ * GET /api/ranking/qr/:qrCode/avaliacao
+ * Verifica se cliente já avaliou a loja usando QR Code (rota pública)
+ */
+router.get('/qr/:qrCode/avaliacao', async (req, res) => {
+  try {
+    const { qrCode } = req.params;
+
+    // Buscar cliente por QR code
+    const clienteResult = await pool.query(
+      'SELECT id, loja_id FROM clientes_vip WHERE qr_code_digital = $1 OR qr_code_fisico = $1',
+      [qrCode]
+    );
+
+    if (clienteResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Cliente VIP não encontrado' });
+    }
+
+    const cliente = clienteResult.rows[0];
+
+    // Buscar avaliação existente
+    const avaliacaoResult = await pool.query(
+      'SELECT * FROM avaliacoes WHERE cliente_vip_id = $1 AND loja_id = $2',
+      [cliente.id, cliente.loja_id]
+    );
+
+    if (avaliacaoResult.rows.length > 0) {
+      res.json(avaliacaoResult.rows[0]);
+    } else {
+      res.json(null);
+    }
+  } catch (error: any) {
+    console.error('Erro ao verificar avaliação:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+/**
  * POST /api/ranking/avaliacoes
- * Cria nova avaliação (cliente VIP)
+ * Cria nova avaliação (cliente VIP autenticado)
  */
 router.post(
   '/avaliacoes',
@@ -78,7 +115,7 @@ router.post(
   authorize('cliente_vip', 'admin_mt', 'admin_shopping'),
   async (req, res) => {
     try {
-      const { cliente_vip_id, loja_id, nota, comentario, anonima } = req.body;
+      const { cliente_vip_id, loja_id, nota, comentario } = req.body;
 
       if (!cliente_vip_id || !loja_id || !nota) {
         return res.status(400).json({
@@ -104,13 +141,13 @@ router.post(
         });
       }
 
-      // Criar avaliação
+      // Criar avaliação (sempre com dados do cliente, não anônima)
       const result = await pool.query(
         `INSERT INTO avaliacoes (
           cliente_vip_id, loja_id, nota, comentario, anonima
         ) VALUES ($1, $2, $3, $4, $5)
         RETURNING *`,
-        [cliente_vip_id, loja_id, nota, comentario || null, anonima || false]
+        [cliente_vip_id, loja_id, nota, comentario || null, false]
       );
 
       res.status(201).json(result.rows[0]);
@@ -120,6 +157,66 @@ router.post(
     }
   }
 );
+
+/**
+ * POST /api/ranking/avaliacoes/qr
+ * Cria nova avaliação usando QR Code (rota pública)
+ */
+  router.post('/avaliacoes/qr', async (req, res) => {
+    try {
+      const { qr_code, nota, comentario } = req.body;
+
+    if (!qr_code || !nota) {
+      return res.status(400).json({
+        error: 'QR Code e nota são obrigatórios',
+      });
+    }
+
+    if (nota < 0 || nota > 10) {
+      return res.status(400).json({
+        error: 'Nota deve estar entre 0 e 10',
+      });
+    }
+
+    // Buscar cliente por QR code
+    const clienteResult = await pool.query(
+      'SELECT id, loja_id FROM clientes_vip WHERE qr_code_digital = $1 OR qr_code_fisico = $1',
+      [qr_code]
+    );
+
+    if (clienteResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Cliente VIP não encontrado' });
+    }
+
+    const cliente = clienteResult.rows[0];
+
+    // Verificar se já existe avaliação deste cliente para esta loja
+    const existe = await pool.query(
+      'SELECT id FROM avaliacoes WHERE cliente_vip_id = $1 AND loja_id = $2',
+      [cliente.id, cliente.loja_id]
+    );
+
+    if (existe.rows.length > 0) {
+      return res.status(400).json({
+        error: 'Você já avaliou esta loja. Cada cliente pode avaliar uma loja apenas uma vez.',
+      });
+    }
+
+    // Criar avaliação (sempre com dados do cliente, não anônima)
+    const result = await pool.query(
+      `INSERT INTO avaliacoes (
+        cliente_vip_id, loja_id, nota, comentario, anonima
+      ) VALUES ($1, $2, $3, $4, $5)
+      RETURNING *`,
+      [cliente.id, cliente.loja_id, nota, comentario || null, false]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (error: any) {
+    console.error('Erro ao criar avaliação por QR Code:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
 
 export default router;
 

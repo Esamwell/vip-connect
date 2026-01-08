@@ -14,6 +14,8 @@ interface VipCardProps {
   veiculoModelo?: string;
   veiculoAno?: number;
   veiculoPlaca?: string;
+  qrCodeDigital?: string;
+  qrCodeFisico?: string;
 }
 
 const statusConfig = {
@@ -49,7 +51,9 @@ export function VipCard({
   veiculoMarca,
   veiculoModelo,
   veiculoAno,
-  veiculoPlaca
+  veiculoPlaca,
+  qrCodeDigital,
+  qrCodeFisico
 }: VipCardProps) {
   const statusInfo = statusConfig[status];
   const StatusIcon = statusInfo.icon;
@@ -80,7 +84,7 @@ export function VipCard({
               <h3 className="text-xl font-display font-bold text-vip-gold">
                 Cliente VIP
               </h3>
-              <p className="text-sm text-primary-foreground/70">
+              <p className="text-sm text-white/90">
                 Auto Shopping Itapoan
               </p>
             </div>
@@ -93,25 +97,25 @@ export function VipCard({
 
         {/* Client Info */}
         <div className="relative z-10 mb-6">
-          <p className="text-2xl font-bold text-primary-foreground tracking-wide">
+          <p className="text-2xl font-bold text-white tracking-wide">
             {clientName}
           </p>
-          <p className="text-sm text-primary-foreground/60 mt-1">
+          <p className="text-sm text-white/90 mt-1">
             Loja: {storeName}
           </p>
           {/* Veículo Info */}
           {(veiculoMarca || veiculoModelo || veiculoAno || veiculoPlaca) && (
-            <div className="mt-3 pt-3 border-t border-primary-foreground/20">
-              <div className="flex items-center gap-2 text-primary-foreground/80 mb-2">
+            <div className="mt-3 pt-3 border-t border-white/20">
+              <div className="flex items-center gap-2 text-white/90 mb-2">
                 <Car className="w-4 h-4" />
                 <span className="text-xs font-medium">Veículo</span>
               </div>
-              <div className="flex flex-wrap gap-2 text-xs text-primary-foreground/90">
+              <div className="flex flex-wrap gap-2 text-xs text-white">
                 {veiculoMarca && <span className="font-semibold">{veiculoMarca}</span>}
                 {veiculoModelo && <span>{veiculoModelo}</span>}
                 {veiculoAno && <span>({veiculoAno})</span>}
                 {veiculoPlaca && (
-                  <span className="ml-2 px-2 py-0.5 bg-primary-foreground/20 rounded font-mono">
+                  <span className="ml-2 px-2 py-0.5 bg-white/20 rounded font-mono">
                     {veiculoPlaca.toUpperCase()}
                   </span>
                 )}
@@ -123,15 +127,15 @@ export function VipCard({
         {/* QR Code Section */}
         <div className="relative z-10 flex items-end justify-between gap-4">
           <div className="flex-1 space-y-3">
-            <div className="flex items-center gap-2 text-primary-foreground/70">
+            <div className="flex items-center gap-2 text-white/90">
               <Calendar className="w-4 h-4" />
               <span className="text-xs">Membro desde</span>
             </div>
-            <p className="text-sm text-primary-foreground font-medium">
+            <p className="text-sm text-white font-medium">
               {memberSince}
             </p>
             
-            <div className="flex items-center gap-2 text-primary-foreground/70 mt-4">
+            <div className="flex items-center gap-2 text-white/90 mt-4">
               <Clock className="w-4 h-4" />
               <span className="text-xs">Válido até</span>
             </div>
@@ -140,7 +144,7 @@ export function VipCard({
             </p>
           </div>
 
-          <div className="bg-primary-foreground p-2 rounded-xl shadow-lg">
+          <div className="bg-white p-2 rounded-xl shadow-lg">
             <QRCodeSVG
               value={qrValue}
               size={100}
@@ -151,11 +155,23 @@ export function VipCard({
           </div>
         </div>
 
-        {/* Card ID */}
-        <div className="relative z-10 mt-6 pt-4 border-t border-primary-foreground/10">
-          <p className="text-xs text-primary-foreground/40 font-mono tracking-widest">
-            QR Code: {clientId}
-          </p>
+        {/* QR Codes */}
+        <div className="relative z-10 mt-6 pt-4 border-t border-white/20 space-y-2">
+          {qrCodeDigital && (
+            <p className="text-xs text-white/90 font-mono tracking-widest">
+              QR Code Digital: {qrCodeDigital}
+            </p>
+          )}
+          {qrCodeFisico && (
+            <p className="text-xs text-white/90 font-mono tracking-widest">
+              QR Code Físico: {qrCodeFisico}
+            </p>
+          )}
+          {!qrCodeDigital && !qrCodeFisico && (
+            <p className="text-xs text-white/90 font-mono tracking-widest">
+              QR Code: {clientId}
+            </p>
+          )}
         </div>
       </div>
     </motion.div>

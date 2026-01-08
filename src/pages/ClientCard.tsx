@@ -15,7 +15,9 @@ import {
   History,
   MapPin,
   Calendar,
-  Store
+  Store,
+  Star,
+  StarOff
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -60,6 +62,13 @@ const ClientCard = () => {
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Estados para avaliação
+  const [avaliacaoNota, setAvaliacaoNota] = useState<number>(0);
+  const [avaliacaoComentario, setAvaliacaoComentario] = useState('');
+  const [avaliacaoEnviada, setAvaliacaoEnviada] = useState(false);
+  const [avaliacaoEnviando, setAvaliacaoEnviando] = useState(false);
+  const [jaAvaliou, setJaAvaliou] = useState(false);
+
   // Buscar benefícios disponíveis
   const loadBeneficios = useCallback(async (clienteId: string, qrCode?: string) => {
     try {
@@ -100,6 +109,78 @@ const ClientCard = () => {
     }
   }, []);
 
+  // Verificar se já avaliou a loja
+  const verificarAvaliacao = useCallback(async (qrCode: string) => {
+    if (!qrCode) return;
+    try {
+      // Tentar buscar avaliação existente usando QR code (rota pública)
+      const avaliacaoExistente = await api.get<any>(`/ranking/qr/${qrCode}/avaliacao`).catch(() => null);
+      
+      if (avaliacaoExistente) {
+        setJaAvaliou(true);
+        setAvaliacaoNota(avaliacaoExistente.nota);
+        setAvaliacaoComentario(avaliacaoExistente.comentario || '');
+        setAvaliacaoEnviada(true);
+      }
+    } catch (error) {
+      console.error('Erro ao verificar avaliação:', error);
+    }
+  }, []);
+
+  // Enviar avaliação
+  const handleEnviarAvaliacao = async () => {
+    if (!cliente || avaliacaoNota === 0) {
+      toast({
+        title: 'Avaliação incompleta',
+        description: 'Por favor, selecione uma nota para a loja.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      setAvaliacaoEnviando(true);
+      
+      // Usar QR code para rota pública ou ID para rota autenticada
+      const qrCodeToUse = qrCode || cliente.qr_code_digital || cliente.qr_code_fisico || '';
+      
+      if (qrCodeToUse && (qrCodeToUse.startsWith('VIP-') || qrCodeToUse.startsWith('FISICO-'))) {
+        // Usar rota pública com QR code
+        await api.post('/ranking/avaliacoes/qr', {
+          qr_code: qrCodeToUse,
+          nota: avaliacaoNota,
+          comentario: avaliacaoComentario || null,
+          anonima: false, // Sempre enviar dados do cliente
+        });
+      } else {
+        // Usar rota autenticada com ID
+        await api.post('/ranking/avaliacoes', {
+          cliente_vip_id: cliente.id,
+          loja_id: cliente.loja_id,
+          nota: avaliacaoNota,
+          comentario: avaliacaoComentario || null,
+          anonima: false, // Sempre enviar dados do cliente
+        });
+      }
+
+      setAvaliacaoEnviada(true);
+      setJaAvaliou(true);
+      toast({
+        title: 'Avaliação enviada!',
+        description: 'Obrigado por avaliar nossa loja.',
+      });
+    } catch (error: any) {
+      console.error('Erro ao enviar avaliação:', error);
+      toast({
+        title: 'Erro ao enviar avaliação',
+        description: error.response?.data?.error || 'Não foi possível enviar sua avaliação.',
+        variant: 'destructive',
+      });
+    } finally {
+      setAvaliacaoEnviando(false);
+    }
+  };
+
   // Buscar cliente VIP
   useEffect(() => {
     const buscarCliente = async () => {
@@ -125,6 +206,8 @@ const ClientCard = () => {
             // Buscar histórico usando QR code para rota pública
             if (qrCodeToUse && (qrCodeToUse.startsWith('VIP-') || qrCodeToUse.startsWith('FISICO-'))) {
               loadHistoricoResgates(qrCodeToUse);
+              // Verificar se já avaliou a loja usando QR code
+              verificarAvaliacao(qrCodeToUse);
             }
           }
         }
@@ -141,7 +224,7 @@ const ClientCard = () => {
     };
 
     buscarCliente();
-  }, [qrCode, isAuthenticated, toast, loadBeneficios, loadHistoricoResgates]);
+  }, [qrCode, isAuthenticated, toast, loadBeneficios, loadHistoricoResgates, verificarAvaliacao]);
 
   const handleQRSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -297,222 +380,346 @@ const ClientCard = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8 max-w-lg pb-20">
-        {/* VIP Card */}
+      <main className="container mx-auto px-4 py-8 max-w-7xl pb-20">
+        {/* VIP Card - Destaque no topo */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
+          className="mb-8 flex justify-center"
         >
-          <VipCard
-            clientName={cliente.nome}
-            clientId={cliente.qr_code_digital}
-            storeName={cliente.loja_nome || 'Loja'}
-            validUntil={formatDate(cliente.data_validade)}
-            status={getStatus(cliente)}
-            memberSince={formatDate(cliente.data_ativacao)}
-            veiculoMarca={cliente.veiculo_marca}
-            veiculoModelo={cliente.veiculo_modelo}
-            veiculoAno={cliente.veiculo_ano}
-            veiculoPlaca={cliente.veiculo_placa}
-          />
+          <div className="w-full max-w-md">
+            <VipCard
+              clientName={cliente.nome}
+              clientId={cliente.qr_code_digital || cliente.qr_code_fisico || ''}
+              storeName={cliente.loja_nome || 'Loja'}
+              validUntil={formatDate(cliente.data_validade)}
+              status={getStatus(cliente)}
+              memberSince={formatDate(cliente.data_ativacao)}
+              veiculoMarca={cliente.veiculo_marca}
+              veiculoModelo={cliente.veiculo_modelo}
+              veiculoAno={cliente.veiculo_ano}
+              veiculoPlaca={cliente.veiculo_placa}
+              qrCodeDigital={cliente.qr_code_digital}
+              qrCodeFisico={cliente.qr_code_fisico}
+            />
+          </div>
         </motion.div>
 
-        {/* Benefícios Disponíveis */}
-        {beneficiosDisponiveis.length > 0 && (
+        {/* Grid Principal - Benefícios e Avaliação lado a lado */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          {/* Benefícios Disponíveis */}
+          {beneficiosDisponiveis.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+            >
+              <Card className="shadow-lg h-full">
+                <CardHeader>
+                  <CardTitle className="text-lg font-display flex items-center gap-2">
+                    <Gift className="w-5 h-5 text-vip-gold" />
+                    Benefícios Disponíveis
+                  </CardTitle>
+                  <CardDescription>
+                    Você pode resgatar estes benefícios nos parceiros credenciados
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
+                    {beneficiosDisponiveis.map((beneficio) => (
+                      <div
+                        key={beneficio.id}
+                        className="p-4 rounded-xl border border-border bg-gradient-to-r from-card to-card/50 hover:border-primary/50 hover:shadow-md transition-all"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Gift className="w-4 h-4 text-vip-gold" />
+                              <h4 className="font-semibold text-sm">{beneficio.nome}</h4>
+                              <Badge variant={beneficio.tipo === 'oficial' ? 'default' : 'outline'} className="text-xs">
+                                {beneficio.tipo === 'oficial' ? 'Oficial' : 'Loja'}
+                              </Badge>
+                            </div>
+                            {beneficio.descricao && (
+                              <p className="text-sm text-muted-foreground mb-3">{beneficio.descricao}</p>
+                            )}
+                            <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                              {beneficio.parceiro_nome && (
+                                <div className="flex items-center gap-1">
+                                  <MapPin className="w-3 h-3" />
+                                  <span className="font-medium">{beneficio.parceiro_nome}</span>
+                                </div>
+                              )}
+                              {beneficio.loja_nome && (
+                                <div className="flex items-center gap-1">
+                                  <Store className="w-3 h-3" />
+                                  <span>{beneficio.loja_nome}</span>
+                                </div>
+                              )}
+                            </div>
+                            <div className="mt-3 pt-3 border-t border-border/50">
+                              <p className="text-xs text-muted-foreground">
+                                💡 <strong>Como resgatar:</strong> Apresente seu cartão VIP ao parceiro credenciado
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
+          {/* Avaliação da Loja */}
+          {!jaAvaliou && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+            >
+              <Card className="shadow-lg h-full">
+                <CardHeader>
+                  <CardTitle className="text-lg font-display flex items-center gap-2">
+                    <Star className="w-5 h-5 text-vip-gold" />
+                    Avaliar Loja
+                  </CardTitle>
+                  <CardDescription>
+                    Sua opinião é importante! Avalie sua experiência com a loja.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {avaliacaoEnviada ? (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="text-center py-6"
+                    >
+                      <div className="w-16 h-16 rounded-full bg-success/20 flex items-center justify-center mx-auto mb-4">
+                        <CheckCircle className="w-8 h-8 text-success" />
+                      </div>
+                      <h3 className="font-semibold text-foreground mb-2">
+                        Avaliação Enviada!
+                      </h3>
+                      <div className="flex items-center justify-center gap-1 mb-2">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Star
+                            key={star}
+                            className={`w-5 h-5 ${
+                              star <= Math.ceil(avaliacaoNota / 2)
+                                ? 'fill-yellow-400 text-yellow-400'
+                                : 'text-muted-foreground'
+                            }`}
+                          />
+                        ))}
+                        <span className="ml-2 text-sm font-medium">({avaliacaoNota}/10)</span>
+                      </div>
+                      {avaliacaoComentario && (
+                        <p className="text-sm text-muted-foreground italic mb-4">
+                          "{avaliacaoComentario}"
+                        </p>
+                      )}
+                      <p className="text-xs text-muted-foreground">
+                        Obrigado por sua avaliação!
+                      </p>
+                    </motion.div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-sm font-medium mb-2 block">
+                          Nota (0 a 10)
+                        </label>
+                        <div className="flex items-center gap-2">
+                          {[1, 2, 3, 4, 5].map((star) => {
+                            const notaEstrela = star * 2;
+                            return (
+                              <button
+                                key={star}
+                                type="button"
+                                onClick={() => setAvaliacaoNota(notaEstrela)}
+                                className="focus:outline-none transition-transform hover:scale-110"
+                              >
+                                <Star
+                                  className={`w-8 h-8 transition-colors ${
+                                    avaliacaoNota >= notaEstrela
+                                      ? 'fill-yellow-400 text-yellow-400'
+                                      : avaliacaoNota >= notaEstrela - 1
+                                      ? 'fill-yellow-200 text-yellow-200'
+                                      : 'text-muted-foreground'
+                                  }`}
+                                />
+                              </button>
+                            );
+                          })}
+                          <span className="ml-2 text-sm font-medium text-muted-foreground">
+                            {avaliacaoNota > 0 ? `${avaliacaoNota}/10` : 'Selecione uma nota'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-sm font-medium mb-2 block">
+                          Comentário (opcional)
+                        </label>
+                        <Textarea
+                          placeholder="Conte-nos sobre sua experiência..."
+                          value={avaliacaoComentario}
+                          onChange={(e) => setAvaliacaoComentario(e.target.value)}
+                          rows={3}
+                        />
+                      </div>
+
+                      <Button
+                        onClick={handleEnviarAvaliacao}
+                        variant="vip"
+                        className="w-full"
+                        disabled={avaliacaoNota === 0 || avaliacaoEnviando}
+                      >
+                        {avaliacaoEnviando ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                            Enviando...
+                          </>
+                        ) : (
+                          <>
+                            <Star className="w-4 h-4 mr-2" />
+                            Enviar Avaliação
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+        </div>
+
+        {/* Histórico de Resgates - Largura completa */}
+        {(beneficiosResgatados.length > 0 || historicoResgates.length > 0) && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
+            transition={{ delay: 0.2 }}
             className="mb-6"
           >
             <Card className="shadow-lg">
               <CardHeader>
                 <CardTitle className="text-lg font-display flex items-center gap-2">
-                  <Gift className="w-5 h-5 text-vip-gold" />
-                  Benefícios Disponíveis
+                  <History className="w-5 h-5 text-vip-gold" />
+                  Histórico de Resgates
                 </CardTitle>
                 <CardDescription>
-                  Você pode resgatar estes benefícios nos parceiros credenciados
+                  Veja todos os benefícios que você já resgatou
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  {beneficiosDisponiveis.map((beneficio) => (
-                    <div
-                      key={beneficio.id}
-                      className="p-4 rounded-xl border border-border bg-gradient-to-r from-card to-card/50 hover:border-primary/50 hover:shadow-md transition-all"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Gift className="w-4 h-4 text-vip-gold" />
-                            <h4 className="font-semibold text-sm">{beneficio.nome}</h4>
-                            <Badge variant={beneficio.tipo === 'oficial' ? 'default' : 'outline'} className="text-xs">
-                              {beneficio.tipo === 'oficial' ? 'Oficial' : 'Loja'}
-                            </Badge>
-                          </div>
-                          {beneficio.descricao && (
-                            <p className="text-sm text-muted-foreground mb-3">{beneficio.descricao}</p>
-                          )}
-                          <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-                            {beneficio.parceiro_nome && (
-                              <div className="flex items-center gap-1">
-                                <MapPin className="w-3 h-3" />
-                                <span className="font-medium">{beneficio.parceiro_nome}</span>
+                {loadingHistorico || loadingBeneficios ? (
+                  <div className="py-8 text-center">
+                    <Loader2 className="w-6 h-6 animate-spin text-primary mx-auto mb-2" />
+                    <p className="text-sm text-muted-foreground">Carregando histórico...</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {/* Benefícios resgatados pelo admin/lojista */}
+                    {beneficiosResgatados.map((beneficio) => (
+                      <div
+                        key={beneficio.alocacao_id || beneficio.id}
+                        className="p-4 rounded-xl border border-border bg-card/50 hover:border-success/50 transition-all opacity-75"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <CheckCircle className="w-4 h-4 text-success" />
+                              <h4 className="font-semibold text-sm line-through text-muted-foreground">{beneficio.nome}</h4>
+                              <Badge variant="outline" className="text-xs bg-gray-100 text-gray-600">
+                                Resgatado
+                              </Badge>
+                              {beneficio.tipo && (
+                                <Badge variant={beneficio.tipo === 'oficial' ? 'default' : 'outline'} className="text-xs">
+                                  {beneficio.tipo === 'oficial' ? 'Oficial' : 'Loja'}
+                                </Badge>
+                              )}
+                            </div>
+                            {beneficio.descricao && (
+                              <p className="text-sm text-muted-foreground mb-2 line-through">{beneficio.descricao}</p>
+                            )}
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+                              {beneficio.parceiro_nome && (
+                                <div className="flex items-center gap-1">
+                                  <MapPin className="w-3 h-3" />
+                                  <span>Parceiro: <strong>{beneficio.parceiro_nome}</strong></span>
+                                </div>
+                              )}
+                              {beneficio.loja_nome && (
+                                <div className="flex items-center gap-1">
+                                  <Store className="w-3 h-3" />
+                                  <span>Loja: <strong>{beneficio.loja_nome}</strong></span>
+                                </div>
+                              )}
+                            </div>
+                            {beneficio.data_resgate && (
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <Calendar className="w-3 h-3" />
+                                <span>
+                                  Resgatado em: <strong>
+                                    {format(new Date(beneficio.data_resgate), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}
+                                  </strong>
+                                  {beneficio.resgatado_por_nome && (
+                                    <span className="ml-1">por {beneficio.resgatado_por_nome}</span>
+                                  )}
+                                </span>
                               </div>
                             )}
-                            {beneficio.loja_nome && (
-                              <div className="flex items-center gap-1">
-                                <Store className="w-3 h-3" />
-                                <span>{beneficio.loja_nome}</span>
-                              </div>
-                            )}
-                          </div>
-                          <div className="mt-3 pt-3 border-t border-border/50">
-                            <p className="text-xs text-muted-foreground">
-                              💡 <strong>Como resgatar:</strong> Apresente seu cartão VIP (digital ou físico) ao parceiro credenciado para validação do benefício
-                            </p>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                    
+                    {/* Validações feitas pelos parceiros */}
+                    {historicoResgates.map((resgate) => (
+                      <div
+                        key={resgate.id}
+                        className="p-4 rounded-xl border border-border bg-card/50 hover:border-success/50 transition-all"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <CheckCircle className="w-4 h-4 text-success" />
+                              <h4 className="font-semibold text-sm">{resgate.beneficio_nome || 'Benefício Resgatado'}</h4>
+                              <Badge variant="success" className="text-xs">
+                                Validado
+                              </Badge>
+                            </div>
+                            {resgate.parceiro_nome && (
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+                                <MapPin className="w-3 h-3" />
+                                <span>Validado em: <strong>{resgate.parceiro_nome}</strong></span>
+                              </div>
+                            )}
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <Calendar className="w-3 h-3" />
+                              <span>
+                                {format(new Date(resgate.data_validacao), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </motion.div>
         )}
 
-        {/* Histórico de Resgates */}
+        {/* Atendimento Prioritário - Largura completa */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
-          className="mb-6"
-        >
-          <Card className="shadow-lg">
-            <CardHeader>
-              <CardTitle className="text-lg font-display flex items-center gap-2">
-                <History className="w-5 h-5 text-vip-gold" />
-                Histórico de Resgates
-              </CardTitle>
-              <CardDescription>
-                Veja todos os benefícios que você já resgatou
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {loadingHistorico || loadingBeneficios ? (
-                <div className="py-8 text-center">
-                  <Loader2 className="w-6 h-6 animate-spin text-primary mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">Carregando histórico...</p>
-                </div>
-              ) : beneficiosResgatados.length === 0 && historicoResgates.length === 0 ? (
-                <div className="py-8 text-center text-muted-foreground">
-                  <History className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                  <p className="text-sm">Nenhum benefício resgatado ainda.</p>
-                  <p className="text-xs mt-1">Seus resgates aparecerão aqui após a validação nos parceiros.</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {/* Benefícios resgatados pelo admin/lojista */}
-                  {beneficiosResgatados.map((beneficio) => (
-                    <div
-                      key={beneficio.alocacao_id || beneficio.id}
-                      className="p-4 rounded-xl border border-border bg-card/50 hover:border-success/50 transition-all opacity-75"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <CheckCircle className="w-4 h-4 text-success" />
-                            <h4 className="font-semibold text-sm line-through text-muted-foreground">{beneficio.nome}</h4>
-                            <Badge variant="outline" className="text-xs bg-gray-100 text-gray-600">
-                              Resgatado
-                            </Badge>
-                            {beneficio.tipo && (
-                              <Badge variant={beneficio.tipo === 'oficial' ? 'default' : 'outline'} className="text-xs">
-                                {beneficio.tipo === 'oficial' ? 'Oficial' : 'Loja'}
-                              </Badge>
-                            )}
-                          </div>
-                          {beneficio.descricao && (
-                            <p className="text-sm text-muted-foreground mb-2 line-through">{beneficio.descricao}</p>
-                          )}
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-                            {beneficio.parceiro_nome && (
-                              <div className="flex items-center gap-1">
-                                <MapPin className="w-3 h-3" />
-                                <span>Parceiro: <strong>{beneficio.parceiro_nome}</strong></span>
-                              </div>
-                            )}
-                            {beneficio.loja_nome && (
-                              <div className="flex items-center gap-1">
-                                <Store className="w-3 h-3" />
-                                <span>Loja: <strong>{beneficio.loja_nome}</strong></span>
-                              </div>
-                            )}
-                          </div>
-                          {beneficio.data_resgate && (
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <Calendar className="w-3 h-3" />
-                              <span>
-                                Resgatado em: <strong>
-                                  {format(new Date(beneficio.data_resgate), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}
-                                </strong>
-                                {beneficio.resgatado_por_nome && (
-                                  <span className="ml-1">por {beneficio.resgatado_por_nome}</span>
-                                )}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  
-                  {/* Validações feitas pelos parceiros */}
-                  {historicoResgates.map((resgate) => (
-                    <div
-                      key={resgate.id}
-                      className="p-4 rounded-xl border border-border bg-card/50 hover:border-success/50 transition-all"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <CheckCircle className="w-4 h-4 text-success" />
-                            <h4 className="font-semibold text-sm">{resgate.beneficio_nome || 'Benefício Resgatado'}</h4>
-                            <Badge variant="success" className="text-xs">
-                              Validado
-                            </Badge>
-                          </div>
-                          {resgate.parceiro_nome && (
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-                              <MapPin className="w-3 h-3" />
-                              <span>Validado em: <strong>{resgate.parceiro_nome}</strong></span>
-                            </div>
-                          )}
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <Calendar className="w-3 h-3" />
-                            <span>
-                              {format(new Date(resgate.data_validacao), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* Action Buttons */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="space-y-4"
+          transition={{ delay: 0.25 }}
         >
           <Card className="shadow-lg">
             <CardHeader>
@@ -528,7 +735,7 @@ const ClientCard = () => {
               {!submitted ? (
                 <>
                   {!selectedType ? (
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                       {ticketTypes.map((type) => (
                         <button
                           key={type.id}

@@ -5,11 +5,11 @@ import { Trophy, Star, TrendingUp } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 interface LojaRanking {
-  loja_id: string;
-  loja_nome: string;
+  id: string;
+  nome: string;
   nota_media: number;
-  total_avaliacoes: number;
-  posicao: number;
+  quantidade_avaliacoes: number;
+  posicao_ranking: number;
 }
 
 export default function Ranking() {
@@ -23,8 +23,8 @@ export default function Ranking() {
   const loadRanking = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/ranking/lojas');
-      setRanking(response.data || []);
+      const data = await api.get<LojaRanking[]>('/ranking/lojas');
+      setRanking(data || []);
     } catch (error) {
       console.error('Erro ao carregar ranking:', error);
     } finally {
@@ -75,28 +75,28 @@ export default function Ranking() {
             <div className="space-y-4">
               {ranking.map((loja) => (
                 <div
-                  key={loja.loja_id}
+                  key={loja.id}
                   className="flex items-center justify-between p-4 rounded-lg border"
                 >
                   <div className="flex items-center gap-4">
                     <div className="text-3xl font-bold w-12 text-center">
-                      {getMedalIcon(loja.posicao)}
+                      {getMedalIcon(loja.posicao_ranking)}
                     </div>
                     <div>
-                      <h3 className="font-semibold text-lg">{loja.loja_nome}</h3>
+                      <h3 className="font-semibold text-lg">{loja.nome}</h3>
                       <div className="flex items-center gap-2 mt-1">
                         <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
                         <span className="font-medium">
                           {loja.nota_media.toFixed(1)}
                         </span>
                         <span className="text-sm text-muted-foreground">
-                          ({loja.total_avaliacoes} avaliações)
+                          ({loja.quantidade_avaliacoes} avaliações)
                         </span>
                       </div>
                     </div>
                   </div>
                   <Badge variant="outline" className="text-lg px-3 py-1">
-                    #{loja.posicao}
+                    #{loja.posicao_ranking}
                   </Badge>
                 </div>
               ))}

@@ -13,6 +13,7 @@ import relatoriosRoutes from './routes/relatorios';
 import renovacaoRoutes from './routes/renovacao';
 import lojasRoutes from './routes/lojas';
 import parceirosRoutes from './routes/parceiros';
+import dashboardRoutes from './routes/dashboard';
 
 // Carregar variáveis de ambiente
 dotenv.config();
@@ -48,6 +49,7 @@ app.use('/api/relatorios', relatoriosRoutes);
 app.use('/api/renovacao', renovacaoRoutes);
 app.use('/api/lojas', lojasRoutes);
 app.use('/api/parceiros', parceirosRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // Rota 404
 app.use((req, res) => {

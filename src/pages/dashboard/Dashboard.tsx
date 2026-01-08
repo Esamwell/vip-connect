@@ -4,6 +4,8 @@ import { StatCard } from '@/components/cards/StatCard';
 import { AnalyticsCard } from '@/components/cards/AnalyticsCard';
 import { Users, Store, MessageSquare, TrendingUp, Calendar, Gift, Trophy, Activity } from 'lucide-react';
 import { api } from '@/services/api';
+import { formatDistanceToNow } from 'date-fns';
+import { ptBR } from 'date-fns/locale/pt-BR';
 
 interface DashboardStats {
   totalClientes: number;
@@ -12,6 +14,19 @@ interface DashboardStats {
   clientesVencendo: number;
   renovacoesMes: number;
   beneficiosUsados: number;
+  crescimentoClientes: number;
+  crescimentoRenovacoes: number;
+}
+
+interface AtividadeRecente {
+  id: string;
+  tipo: 'cliente_cadastrado' | 'vip_renovado' | 'beneficio_validado' | 'beneficio_resgatado';
+  titulo: string;
+  descricao: string;
+  data: string;
+  loja_nome?: string;
+  parceiro_nome?: string;
+  resgatado_por_nome?: string;
 }
 
 export default function Dashboard() {
@@ -23,37 +38,93 @@ export default function Dashboard() {
     clientesVencendo: 0,
     renovacoesMes: 0,
     beneficiosUsados: 0,
+    crescimentoClientes: 0,
+    crescimentoRenovacoes: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [atividadesRecentes, setAtividadesRecentes] = useState<AtividadeRecente[]>([]);
 
   useEffect(() => {
     loadStats();
+    loadAtividadesRecentes();
   }, []);
 
   const loadStats = async () => {
     try {
       setLoading(true);
       
-      // Carregar estatísticas baseadas no role
-      const [clientes, chamados, vencimentos, renovacoes] = await Promise.all([
-        api.get('/clientes-vip').catch(() => ({ data: [] })),
-        api.get('/chamados?status=aberto').catch(() => ({ data: [] })),
-        api.get('/relatorios/clientes-vencimento-proximo').catch(() => ({ data: [] })),
-        api.get('/relatorios/clientes-renovados?mes=' + new Date().getMonth() + 1).catch(() => ({ data: [] })),
-      ]);
-
-      setStats({
-        totalClientes: clientes.data?.length || 0,
-        totalLojas: 0, // Será implementado quando tiver rota de lojas
-        chamadosAbertos: chamados.data?.length || 0,
-        clientesVencendo: vencimentos.data?.length || 0,
-        renovacoesMes: renovacoes.data?.length || 0,
-        beneficiosUsados: 0, // Será implementado quando tiver rota de benefícios
-      });
-    } catch (error) {
+      // Carregar estatísticas do dashboard
+      const data = await api.get<DashboardStats>('/dashboard/stats');
+      
+      console.log('[Dashboard] Resposta da API:', data);
+      
+      if (data) {
+        setStats({
+          totalClientes: data.totalClientes || 0,
+          totalLojas: data.totalLojas || 0,
+          chamadosAbertos: data.chamadosAbertos || 0,
+          clientesVencendo: data.clientesVencendo || 0,
+          renovacoesMes: data.renovacoesMes || 0,
+          beneficiosUsados: data.beneficiosUsados || 0,
+          crescimentoClientes: data.crescimentoClientes || 0,
+          crescimentoRenovacoes: data.crescimentoRenovacoes || 0,
+        });
+      }
+    } catch (error: any) {
       console.error('Erro ao carregar estatísticas:', error);
+      console.error('Detalhes do erro:', error.response?.data || error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadAtividadesRecentes = async () => {
+    try {
+      const atividades = await api.get<AtividadeRecente[]>('/dashboard/atividades-recentes');
+      setAtividadesRecentes(atividades || []);
+    } catch (error: any) {
+      console.error('Erro ao carregar atividades recentes:', error);
+    }
+  };
+
+  const getAtividadeIcon = (tipo: string) => {
+    switch (tipo) {
+      case 'cliente_cadastrado':
+        return Users;
+      case 'vip_renovado':
+        return TrendingUp;
+      case 'beneficio_validado':
+        return Gift;
+      case 'beneficio_resgatado':
+        return Gift;
+      default:
+        return Activity;
+    }
+  };
+
+  const getAtividadeIconColor = (tipo: string) => {
+    switch (tipo) {
+      case 'cliente_cadastrado':
+        return 'bg-primary/10 text-primary';
+      case 'vip_renovado':
+        return 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400';
+      case 'beneficio_validado':
+        return 'bg-accent/10 text-accent';
+      case 'beneficio_resgatado':
+        return 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400';
+      default:
+        return 'bg-muted text-muted-foreground';
+    }
+  };
+
+  const formatarTempoRelativo = (data: string) => {
+    try {
+      return formatDistanceToNow(new Date(data), {
+        addSuffix: true,
+        locale: ptBR,
+      }).replace('há ', 'Há ');
+    } catch {
+      return 'Data inválida';
     }
   };
 
@@ -78,9 +149,9 @@ export default function Dashboard() {
     );
   }
 
-  // Calcular crescimento percentual (simulado para demonstração)
-  const crescimentoClientes = stats.totalClientes > 0 ? Math.floor(Math.random() * 20) + 5 : 0;
-  const crescimentoRenovacoes = stats.renovacoesMes > 0 ? Math.floor(Math.random() * 30) + 10 : 0;
+  // Usar crescimento vindo do backend
+  const crescimentoClientes = stats.crescimentoClientes;
+  const crescimentoRenovacoes = stats.crescimentoRenovacoes;
 
   return (
     <div className="space-y-6 w-full">
@@ -207,33 +278,29 @@ export default function Dashboard() {
           subtitle="Últimas ações do sistema"
         >
           <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <Users className="w-4 h-4 text-primary" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium">Novo cliente VIP cadastrado</p>
-                <p className="text-xs text-muted-foreground">Há 2 horas</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                <TrendingUp className="w-4 h-4 text-green-600 dark:text-green-400" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium">VIP renovado com sucesso</p>
-                <p className="text-xs text-muted-foreground">Há 5 horas</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center">
-                <Gift className="w-4 h-4 text-accent" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium">Benefício validado</p>
-                <p className="text-xs text-muted-foreground">Há 1 dia</p>
-              </div>
-            </div>
+            {atividadesRecentes.length > 0 ? (
+              atividadesRecentes.map((atividade, index) => {
+                const Icon = getAtividadeIcon(atividade.tipo);
+                const iconColor = getAtividadeIconColor(atividade.tipo);
+                return (
+                  <div key={`${atividade.tipo}-${atividade.id}-${index}`} className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-full ${iconColor} flex items-center justify-center flex-shrink-0`}>
+                      {Icon && <Icon className="w-4 h-4" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">{atividade.titulo}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatarTempoRelativo(atividade.data)}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                Nenhuma atividade recente
+              </p>
+            )}
           </div>
         </AnalyticsCard>
 

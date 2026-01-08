@@ -222,11 +222,10 @@ export function NovoBeneficioModal({ open, onOpenChange, onSuccess, apenasOficia
         
         // Criar ou atualizar benefício oficial
         if (beneficioEditando) {
-          // Editar
+          // Editar - não enviar parceiro_id pois não pode ser alterado
           await api.put(`/beneficios/oficiais/${beneficioEditando.id}`, {
             nome: data.nome,
             descricao: data.descricao,
-            parceiro_id: user?.role === 'parceiro' ? undefined : parceiroSelecionado,
           });
         } else {
           // Criar
@@ -250,11 +249,10 @@ export function NovoBeneficioModal({ open, onOpenChange, onSuccess, apenasOficia
         }
         
         if (beneficioEditando) {
-          // Editar
+          // Editar - não enviar loja_id pois não pode ser alterado
           await api.put(`/beneficios/loja/${beneficioEditando.id}`, {
             nome: data.nome,
             descricao: data.descricao,
-            loja_id: data.loja_id, // Admin especifica, lojista será ignorado e usado o da sessão
           });
         } else {
           // Criar
@@ -343,6 +341,7 @@ export function NovoBeneficioModal({ open, onOpenChange, onSuccess, apenasOficia
             <Tabs 
               value={tipo} 
               onValueChange={(v) => {
+                if (beneficioEditando) return; // Não permitir mudar tipo em edição
                 const newTipo = v as 'oficial' | 'loja';
                 setTipo(newTipo);
                 setValue('tipo', newTipo, { shouldValidate: true });
@@ -353,9 +352,9 @@ export function NovoBeneficioModal({ open, onOpenChange, onSuccess, apenasOficia
                 }
               }}
             >
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="oficial">Benefício Oficial</TabsTrigger>
-                <TabsTrigger value="loja">Benefício de Loja</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2" disabled={!!beneficioEditando}>
+                <TabsTrigger value="oficial" disabled={!!beneficioEditando}>Benefício Oficial</TabsTrigger>
+                <TabsTrigger value="loja" disabled={!!beneficioEditando}>Benefício de Loja</TabsTrigger>
               </TabsList>
 
               <TabsContent value="oficial" className="space-y-4 mt-4">
@@ -380,27 +379,37 @@ export function NovoBeneficioModal({ open, onOpenChange, onSuccess, apenasOficia
                     <Label htmlFor="parceiro_id" className="text-sm font-medium">
                       Parceiro *
                     </Label>
-                    <Select
-                      value={parceiroSelecionado}
-                      onValueChange={(value) => setValue('parceiro_id', value, { shouldValidate: true })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o parceiro" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {parceiros.length === 0 ? (
-                          <SelectItem value="none" disabled>
-                            Nenhum parceiro disponível
-                          </SelectItem>
-                        ) : (
-                          parceiros.map((parceiro) => (
-                            <SelectItem key={parceiro.id} value={parceiro.id}>
-                              {parceiro.nome}
+                    {beneficioEditando ? (
+                      <div className="p-3 bg-muted rounded-md border">
+                        <p className="text-sm text-muted-foreground">
+                          {(beneficioEditando as BeneficioOficial).parceiro_nome || 
+                           parceiros.find(p => p.id === parceiroSelecionado)?.nome || 
+                           'Parceiro vinculado'}
+                        </p>
+                      </div>
+                    ) : (
+                      <Select
+                        value={parceiroSelecionado}
+                        onValueChange={(value) => setValue('parceiro_id', value, { shouldValidate: true })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o parceiro" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {parceiros.length === 0 ? (
+                            <SelectItem value="none" disabled>
+                              Nenhum parceiro disponível
                             </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
+                          ) : (
+                            parceiros.map((parceiro) => (
+                              <SelectItem key={parceiro.id} value={parceiro.id}>
+                                {parceiro.nome}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                    )}
                   </div>
                 ) : user?.role === 'parceiro' ? (
                   <div className="p-3 bg-muted rounded-md">
@@ -445,27 +454,37 @@ export function NovoBeneficioModal({ open, onOpenChange, onSuccess, apenasOficia
                     <Label htmlFor="loja_id" className="text-sm font-medium">
                       Loja *
                     </Label>
-                    <Select
-                      value={lojaSelecionada}
-                      onValueChange={(value) => setValue('loja_id', value, { shouldValidate: true })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione a loja" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {lojas.length === 0 ? (
-                          <SelectItem value="none" disabled>
-                            Nenhuma loja disponível
-                          </SelectItem>
-                        ) : (
-                          lojas.filter(loja => loja.ativo).map((loja) => (
-                            <SelectItem key={loja.id} value={loja.id}>
-                              {loja.nome}
+                    {beneficioEditando ? (
+                      <div className="p-3 bg-muted rounded-md border">
+                        <p className="text-sm text-muted-foreground">
+                          {(beneficioEditando as BeneficioLoja).loja_nome || 
+                           lojas.find(l => l.id === lojaSelecionada)?.nome || 
+                           'Loja vinculada'}
+                        </p>
+                      </div>
+                    ) : (
+                      <Select
+                        value={lojaSelecionada}
+                        onValueChange={(value) => setValue('loja_id', value, { shouldValidate: true })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione a loja" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {lojas.length === 0 ? (
+                            <SelectItem value="none" disabled>
+                              Nenhuma loja disponível
                             </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
+                          ) : (
+                            lojas.filter(loja => loja.ativo).map((loja) => (
+                              <SelectItem key={loja.id} value={loja.id}>
+                                {loja.nome}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                    )}
                   </div>
                 ) : null}
 
@@ -505,27 +524,37 @@ export function NovoBeneficioModal({ open, onOpenChange, onSuccess, apenasOficia
                   <Label htmlFor="parceiro_id" className="text-sm font-medium">
                     Parceiro *
                   </Label>
-                  <Select
-                    value={parceiroSelecionado}
-                    onValueChange={(value) => setValue('parceiro_id', value, { shouldValidate: true })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o parceiro" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {parceiros.length === 0 ? (
-                        <SelectItem value="none" disabled>
-                          Nenhum parceiro disponível
-                        </SelectItem>
-                      ) : (
-                        parceiros.map((parceiro) => (
-                          <SelectItem key={parceiro.id} value={parceiro.id}>
-                            {parceiro.nome}
+                  {beneficioEditando ? (
+                    <div className="p-3 bg-muted rounded-md border">
+                      <p className="text-sm text-muted-foreground">
+                        {(beneficioEditando as BeneficioOficial).parceiro_nome || 
+                         parceiros.find(p => p.id === parceiroSelecionado)?.nome || 
+                         'Parceiro vinculado'}
+                      </p>
+                    </div>
+                  ) : (
+                    <Select
+                      value={parceiroSelecionado}
+                      onValueChange={(value) => setValue('parceiro_id', value, { shouldValidate: true })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o parceiro" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {parceiros.length === 0 ? (
+                          <SelectItem value="none" disabled>
+                            Nenhum parceiro disponível
                           </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
+                        ) : (
+                          parceiros.map((parceiro) => (
+                            <SelectItem key={parceiro.id} value={parceiro.id}>
+                              {parceiro.nome}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
               ) : user?.role === 'parceiro' ? (
                 <div className="p-3 bg-muted rounded-md">

@@ -558,34 +558,17 @@ router.put(
         }
       }
 
-      let parceiroId = parceiro_id || beneficioAtual.parceiro_id;
-
-      // Se for admin e forneceu parceiro_id, validar
-      if (req.user!.role === 'admin_mt' && parceiro_id) {
-        const parceiroCheck = await pool.query(
-          'SELECT id FROM parceiros WHERE id = $1 AND ativo = true',
-          [parceiro_id]
-        );
-        
-        if (parceiroCheck.rows.length === 0) {
-          return res.status(404).json({
-            error: 'Parceiro não encontrado ou inativo',
-          });
-        }
-        parceiroId = parceiro_id;
-      }
-
-      // Atualizar benefício
+      // Em edição, parceiro_id não pode ser alterado - sempre usar o valor atual do banco
+      // Atualizar benefício (parceiro_id não pode ser alterado em edição)
       const result = await pool.query(
         `UPDATE beneficios_oficiais 
          SET nome = COALESCE($1, nome),
              descricao = COALESCE($2, descricao),
-             parceiro_id = COALESCE($3, parceiro_id),
-             ativo = COALESCE($4, ativo),
+             ativo = COALESCE($3, ativo),
              updated_at = CURRENT_TIMESTAMP
-         WHERE id = $5
+         WHERE id = $4
          RETURNING *`,
-        [nome || null, descricao || null, parceiroId || null, ativo !== undefined ? ativo : null, id]
+        [nome || null, descricao || null, ativo !== undefined ? ativo : null, id]
       );
 
       res.json(result.rows[0]);
@@ -709,34 +692,17 @@ router.put(
         }
       }
 
-      let lojaId = loja_id || beneficioAtual.loja_id;
-
-      // Se for admin e forneceu loja_id, validar
-      if (req.user!.role === 'admin_mt' && loja_id) {
-        const lojaCheck = await pool.query(
-          'SELECT id FROM lojas WHERE id = $1 AND ativo = true',
-          [loja_id]
-        );
-        
-        if (lojaCheck.rows.length === 0) {
-          return res.status(404).json({
-            error: 'Loja não encontrada ou inativa',
-          });
-        }
-        lojaId = loja_id;
-      }
-
-      // Atualizar benefício
+      // Em edição, loja_id não pode ser alterado - sempre usar o valor atual do banco
+      // Atualizar benefício (loja_id não pode ser alterado em edição)
       const result = await pool.query(
         `UPDATE beneficios_loja 
          SET nome = COALESCE($1, nome),
              descricao = COALESCE($2, descricao),
-             loja_id = COALESCE($3, loja_id),
-             ativo = COALESCE($4, ativo),
+             ativo = COALESCE($3, ativo),
              updated_at = CURRENT_TIMESTAMP
-         WHERE id = $5
+         WHERE id = $4
          RETURNING *`,
-        [nome || null, descricao || null, lojaId || null, ativo !== undefined ? ativo : null, id]
+        [nome || null, descricao || null, ativo !== undefined ? ativo : null, id]
       );
 
       res.json(result.rows[0]);
