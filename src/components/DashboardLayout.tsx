@@ -310,8 +310,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 <Shield className="w-5 h-5 text-primary" />
               </div>
               <div className="flex flex-col">
-                <h1 className="font-bold text-[15px] leading-tight tracking-tight">VIP Connect</h1>
-                <p className="text-[11px] text-muted-foreground leading-tight font-medium uppercase tracking-wider">Painel Admin</p>
+                <h1 className="font-bold text-[15px] leading-tight tracking-tight">Clube Vip Beneficios</h1>
+                <p className="text-[11px] text-muted-foreground leading-tight font-medium uppercase tracking-wider">Auto Shopping Itapoan</p>
               </div>
             </div>
             <Button

@@ -123,7 +123,7 @@ export function ParceiroDashboardLayout({ children }: ParceiroDashboardLayoutPro
               <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center bg-primary">
                 <img 
                   src="/logovipasi.png" 
-                  alt="VIP Connect" 
+                  alt="Clube Vip Beneficios" 
                   className="w-full h-full object-contain"
                 />
               </div>

@@ -473,58 +473,59 @@ const ClientCard = () => {
           )}
 
           {/* Avaliação da Loja */}
-          {!jaAvaliou && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.15 }}
-            >
-              <Card className="shadow-lg h-full">
-                <CardHeader>
-                  <CardTitle className="text-lg font-display flex items-center gap-2">
-                    <Star className="w-5 h-5 text-vip-gold" />
-                    Avaliar Loja
-                  </CardTitle>
-                  <CardDescription>
-                    Sua opinião é importante! Avalie sua experiência com a loja.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {avaliacaoEnviada ? (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      className="text-center py-6"
-                    >
-                      <div className="w-16 h-16 rounded-full bg-success/20 flex items-center justify-center mx-auto mb-4">
-                        <CheckCircle className="w-8 h-8 text-success" />
-                      </div>
-                      <h3 className="font-semibold text-foreground mb-2">
-                        Avaliação Enviada!
-                      </h3>
-                      <div className="flex items-center justify-center gap-1 mb-2">
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <Star
-                            key={star}
-                            className={`w-5 h-5 ${
-                              star <= Math.ceil(avaliacaoNota / 2)
-                                ? 'fill-yellow-400 text-yellow-400'
-                                : 'text-muted-foreground'
-                            }`}
-                          />
-                        ))}
-                        <span className="ml-2 text-sm font-medium">({avaliacaoNota}/10)</span>
-                      </div>
-                      {avaliacaoComentario && (
-                        <p className="text-sm text-muted-foreground italic mb-4">
-                          "{avaliacaoComentario}"
-                        </p>
-                      )}
-                      <p className="text-xs text-muted-foreground">
-                        Obrigado por sua avaliação!
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+          >
+            <Card className="shadow-lg h-full">
+              <CardHeader>
+                <CardTitle className="text-lg font-display flex items-center gap-2">
+                  <Star className="w-5 h-5 text-vip-gold" />
+                  Avaliar Loja
+                </CardTitle>
+                <CardDescription>
+                  {jaAvaliou || avaliacaoEnviada 
+                    ? 'Sua avaliação foi enviada com sucesso!' 
+                    : 'Sua opinião é importante! Avalie sua experiência com a loja.'}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {jaAvaliou || avaliacaoEnviada ? (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="text-center py-6"
+                  >
+                    <div className="w-16 h-16 rounded-full bg-success/20 flex items-center justify-center mx-auto mb-4">
+                      <CheckCircle className="w-8 h-8 text-success" />
+                    </div>
+                    <h3 className="font-semibold text-foreground mb-2">
+                      Sua avaliação já foi enviada!
+                    </h3>
+                    <div className="flex items-center justify-center gap-1 mb-2">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <Star
+                          key={star}
+                          className={`w-5 h-5 ${
+                            star <= Math.ceil(avaliacaoNota / 2)
+                              ? 'fill-yellow-400 text-yellow-400'
+                              : 'text-muted-foreground'
+                          }`}
+                        />
+                      ))}
+                      <span className="ml-2 text-sm font-medium">({avaliacaoNota}/10)</span>
+                    </div>
+                    {avaliacaoComentario && (
+                      <p className="text-sm text-muted-foreground italic mb-4">
+                        "{avaliacaoComentario}"
                       </p>
-                    </motion.div>
-                  ) : (
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Obrigado por sua avaliação!
+                    </p>
+                  </motion.div>
+                ) : (
                     <div className="space-y-4">
                       <div>
                         <label className="text-sm font-medium mb-2 block">
@@ -593,7 +594,6 @@ const ClientCard = () => {
                 </CardContent>
               </Card>
             </motion.div>
-          )}
         </div>
 
         {/* Histórico de Resgates - Largura completa */}
