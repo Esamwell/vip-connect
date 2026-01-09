@@ -196,8 +196,19 @@ const ClientCard = () => {
       // Usar QR code para rota pública ou ID para rota autenticada
       const qrCodeToUse = qrCode || cliente.qr_code_digital || cliente.qr_code_fisico || '';
       
+      console.log('Enviando avaliação:', {
+        qrCodeToUse,
+        clienteId: cliente.id,
+        lojaId: cliente.loja_id,
+        nota: avaliacaoNota,
+        temQRCode: !!qrCodeToUse,
+        startsWithVIP: qrCodeToUse.startsWith('VIP-'),
+        startsWithFISICO: qrCodeToUse.startsWith('FISICO-'),
+      });
+      
       if (qrCodeToUse && (qrCodeToUse.startsWith('VIP-') || qrCodeToUse.startsWith('FISICO-'))) {
         // Usar rota pública com QR code
+        console.log('Usando rota pública com QR code:', qrCodeToUse);
         await api.post('/ranking/avaliacoes/qr', {
           qr_code: qrCodeToUse,
           nota: avaliacaoNota,
@@ -206,6 +217,7 @@ const ClientCard = () => {
         });
       } else {
         // Usar rota autenticada com ID
+        console.log('Usando rota autenticada com ID do cliente');
         await api.post('/ranking/avaliacoes', {
           cliente_vip_id: cliente.id,
           loja_id: cliente.loja_id,

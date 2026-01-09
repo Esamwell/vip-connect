@@ -195,29 +195,34 @@ router.post(
     try {
       const { qr_code, nota, comentario } = req.body;
 
-    if (!qr_code || !nota) {
-      return res.status(400).json({
-        error: 'QR Code e nota são obrigatórios',
-      });
-    }
+      console.log('Criando avaliação por QR Code:', { qr_code, nota, comentario });
 
-    if (nota < 0 || nota > 10) {
-      return res.status(400).json({
-        error: 'Nota deve estar entre 0 e 10',
-      });
-    }
+      if (!qr_code || !nota) {
+        return res.status(400).json({
+          error: 'QR Code e nota são obrigatórios',
+        });
+      }
 
-    // Buscar cliente por QR code
-    const clienteResult = await pool.query(
-      'SELECT id, loja_id FROM clientes_vip WHERE qr_code_digital = $1 OR qr_code_fisico = $1',
-      [qr_code]
-    );
+      if (nota < 0 || nota > 10) {
+        return res.status(400).json({
+          error: 'Nota deve estar entre 0 e 10',
+        });
+      }
 
-    if (clienteResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Cliente VIP não encontrado' });
-    }
+      // Buscar cliente por QR code
+      console.log('Buscando cliente com QR Code:', qr_code);
+      const clienteResult = await pool.query(
+        'SELECT id, loja_id FROM clientes_vip WHERE qr_code_digital = $1 OR qr_code_fisico = $1',
+        [qr_code]
+      );
 
-    const cliente = clienteResult.rows[0];
+      if (clienteResult.rows.length === 0) {
+        console.log('Cliente não encontrado com QR Code:', qr_code);
+        return res.status(404).json({ error: 'Cliente VIP não encontrado' });
+      }
+
+      const cliente = clienteResult.rows[0];
+      console.log('Cliente encontrado:', cliente.id, 'Loja:', cliente.loja_id);
 
     // Verificar se já existe avaliação deste cliente para esta loja
     const existe = await pool.query(
@@ -231,21 +236,33 @@ router.post(
       });
     }
 
-    // Criar avaliação (sempre com dados do cliente, não anônima)
-    const result = await pool.query(
-      `INSERT INTO avaliacoes (
-        cliente_vip_id, loja_id, nota, comentario, anonima
-      ) VALUES ($1, $2, $3, $4, $5)
-      RETURNING *`,
-      [cliente.id, cliente.loja_id, nota, comentario || null, false]
-    );
+      // Criar avaliação (sempre com dados do cliente, não anônima)
+      console.log('Criando avaliação no banco de dados...');
+      const result = await pool.query(
+        `INSERT INTO avaliacoes (
+          cliente_vip_id, loja_id, nota, comentario, anonima
+        ) VALUES ($1, $2, $3, $4, $5)
+        RETURNING *`,
+        [cliente.id, cliente.loja_id, nota, comentario || null, false]
+      );
 
-    res.status(201).json(result.rows[0]);
-  } catch (error: any) {
-    console.error('Erro ao criar avaliação por QR Code:', error);
-    res.status(500).json({ error: 'Erro interno do servidor' });
-  }
-});
+      console.log('Avaliação criada com sucesso:', result.rows[0].id);
+      res.status(201).json(result.rows[0]);
+    } catch (error: any) {
+      console.error('Erro ao criar avaliação por QR Code:', error);
+      console.error('Detalhes do erro:', {
+        message: error.message,
+        code: error.code,
+        detail: error.detail,
+        hint: error.hint,
+        stack: error.stack,
+      });
+      res.status(500).json({ 
+        error: 'Erro interno do servidor',
+        message: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      });
+    }
+  });
 
 export default router;
 
