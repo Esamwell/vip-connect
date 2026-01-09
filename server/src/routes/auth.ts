@@ -14,6 +14,8 @@ router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    console.log('Tentativa de login:', { email, passwordLength: password?.length });
+
     if (!email || !password) {
       return res.status(400).json({ 
         error: 'Email e senha são obrigatórios' 
@@ -21,28 +23,36 @@ router.post('/login', async (req, res) => {
     }
 
     // Buscar usuário
+    console.log('Buscando usuário no banco:', email);
     const result = await pool.query(
       'SELECT * FROM users WHERE email = $1 AND ativo = true',
       [email]
     );
 
+    console.log('Usuários encontrados:', result.rows.length);
+
     if (result.rows.length === 0) {
+      console.log('Usuário não encontrado ou inativo:', email);
       return res.status(401).json({ 
         error: 'Credenciais inválidas' 
       });
     }
 
     const user = result.rows[0];
+    console.log('Usuário encontrado:', { id: user.id, email: user.email, role: user.role });
 
-    // Verificar senha (assumindo que está usando bcrypt)
-    // Se a senha não estiver hasheada, você precisará atualizar isso
+    // Verificar senha
+    console.log('Verificando senha...');
     const isValidPassword = await bcrypt.compare(password, user.password_hash);
 
     if (!isValidPassword) {
+      console.log('Senha inválida para usuário:', email);
       return res.status(401).json({ 
         error: 'Credenciais inválidas' 
       });
     }
+
+    console.log('Login bem-sucedido para:', email);
 
     // Gerar token
     const token = generateToken({
