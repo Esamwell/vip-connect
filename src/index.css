@@ -2,6 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
+@import './styles/custom-colors.css';
+
 /* Cliente VIP Design System - Auto Shopping Itapoan
    Premium automotive loyalty program aesthetics */
 
@@ -10,19 +12,20 @@
 @layer base {
   :root {
     --card: #faf7f5;
-    --ring: #9b2c2c;
+    --ring: #a41316;
     --input: #f5e8d2;
     --muted: #f0ebe8;
     --accent: #fef3c7;
     --border: #f5e8d2;
     --radius: 0.375rem;
     --chart-1: #b91c1c;
-    --chart-2: #9b2c2c;
+    --chart-2: #a41316;
     --chart-3: #7f1d1d;
     --chart-4: #b45309;
     --chart-5: #92400e;
     --popover: #faf7f5;
-    --primary: #9b2c2c;
+    --primary: #a41316;
+    --primary-custom: #a41316;
     --sidebar: #f0ebe8;
     --font-mono: IBM Plex Mono, monospace;
     --font-sans: Poppins, sans-serif;

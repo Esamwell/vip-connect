@@ -1,0 +1,7 @@
+/* Cor personalizada da marca */
+:root {
+  --brand-red: #a41316;
+  --brand-red-light: #d11d22;
+  --brand-red-dark: #8b0f12;
+}
+

@@ -71,9 +71,17 @@ const storeBenefits = [
 
 function BenefitItem({ icon: Icon, title, description }: { icon: any; title: string; description: string }) {
   return (
-    <div className="flex gap-4 p-4 rounded-xl bg-card border border-border hover:border-accent/30 hover:shadow-md transition-all">
-      <div className="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
-        <Icon className="w-6 h-6 text-accent" />
+    <div className="flex gap-4 p-4 rounded-xl bg-card border border-border hover:border-[#a41316]/30 hover:shadow-md transition-all group">
+      <div 
+        className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 shadow-sm transition-all group-hover:shadow-md group-hover:scale-110"
+        style={{
+          backgroundColor: 'rgba(164, 19, 22, 0.12)',
+        }}
+      >
+        <Icon 
+          className="w-6 h-6 transition-colors" 
+          style={{ color: '#a41316' }}
+        />
       </div>
       <div>
         <h4 className="font-semibold text-foreground mb-1">{title}</h4>
@@ -93,11 +101,19 @@ export function BenefitsSection() {
           viewport={{ once: true }}
           className="text-center mb-16"
         >
-          <span className="inline-block px-4 py-2 rounded-full bg-accent/10 text-accent text-sm font-medium mb-4">
+          <span className="inline-block px-4 py-2 rounded-full text-sm font-medium mb-4 border" style={{ 
+            backgroundColor: 'rgba(164, 19, 22, 0.1)',
+            color: '#a41316',
+            borderColor: 'rgba(164, 19, 22, 0.2)'
+          }}>
             Vantagens Exclusivas
           </span>
           <h2 className="text-3xl md:text-4xl font-display font-bold text-foreground mb-4">
-            O que você ganha como <span className="text-gradient-vip">Cliente VIP</span>
+            O que você ganha como <span className="bg-clip-text text-transparent font-extrabold" style={{
+              backgroundImage: 'linear-gradient(to right, #a41316, #8b0f12, #a41316)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent'
+            }}>Cliente VIP</span>
           </h2>
           <p className="text-muted-foreground max-w-2xl mx-auto">
             Comprou um veículo no Auto Shopping Itapoan? Você automaticamente se torna um Cliente VIP 
@@ -113,8 +129,10 @@ export function BenefitsSection() {
             viewport={{ once: true }}
           >
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-xl gradient-vip flex items-center justify-center">
-                <Sparkles className="w-5 h-5 text-primary" />
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg" style={{
+                background: 'linear-gradient(to bottom right, #a41316, #8b0f12)'
+              }}>
+                <Sparkles className="w-5 h-5 text-white" />
               </div>
               <div>
                 <h3 className="text-xl font-bold text-foreground">Benefícios do Shopping</h3>
@@ -143,8 +161,10 @@ export function BenefitsSection() {
             viewport={{ once: true }}
           >
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                <Gift className="w-5 h-5 text-primary" />
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg" style={{
+                background: 'linear-gradient(to bottom right, #a41316, #8b0f12)'
+              }}>
+                <Gift className="w-5 h-5 text-white" />
               </div>
               <div>
                 <h3 className="text-xl font-bold text-foreground">Benefícios da Sua Loja</h3>
@@ -172,7 +192,11 @@ export function BenefitsSection() {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="text-center bg-gradient-to-r from-accent/5 via-accent/10 to-accent/5 rounded-2xl p-8 border border-accent/20"
+          className="text-center rounded-2xl p-8 border"
+          style={{
+            background: 'linear-gradient(to right, rgba(164, 19, 22, 0.05), rgba(164, 19, 22, 0.1), rgba(164, 19, 22, 0.05))',
+            borderColor: 'rgba(164, 19, 22, 0.2)'
+          }}
         >
           <h3 className="text-2xl font-display font-bold text-foreground mb-3">
             Quer saber todos os seus benefícios?
@@ -182,9 +206,23 @@ export function BenefitsSection() {
             Novos benefícios são adicionados frequentemente!
           </p>
           <Button 
-            variant="vip" 
             size="lg"
             onClick={() => window.location.href = '/meu-cartao'}
+            className="shadow-lg hover:shadow-xl transition-all text-white font-bold"
+            style={{
+              backgroundColor: '#a41316',
+              borderColor: '#a41316'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#8b0f12';
+              e.currentTarget.style.borderColor = '#8b0f12';
+              e.currentTarget.style.transform = 'translateY(-2px)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '#a41316';
+              e.currentTarget.style.borderColor = '#a41316';
+              e.currentTarget.style.transform = 'translateY(0)';
+            }}
           >
             <Star className="w-5 h-5" />
             Acessar Meu Cartão VIP

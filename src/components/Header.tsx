@@ -18,36 +18,47 @@ export function Header({ showNav = true }: HeaderProps) {
       animate={{ y: 0, opacity: 1 }}
       className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border"
     >
-      <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-        {/* Logo */}
-        <a href="/" className="flex items-center gap-3 group">
-          <div className="w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center shadow-vip group-hover:scale-105 transition-transform bg-background">
+      <div className="container mx-auto px-4 h-20 flex items-center">
+        {/* Logo - Enhanced - Large and Visible */}
+        <a href="/" className="flex items-center gap-4 group flex-shrink-0">
+          <div className="relative">
+            <div className="absolute -inset-2 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" style={{ 
+              background: 'linear-gradient(to bottom right, rgba(164, 19, 22, 0.15), hsl(var(--primary) / 0.1))'
+            }} />
             <img 
               src="/logovipasi.png" 
               alt="Cliente VIP" 
-              className="w-full h-full object-contain"
+              className="relative w-24 h-24 object-contain group-hover:scale-110 transition-transform duration-300"
+              style={{ 
+                filter: 'drop-shadow(0 6px 20px rgba(0, 0, 0, 0.25)) brightness(1.1) contrast(1.15)',
+                imageRendering: 'crisp-edges'
+              }}
             />
           </div>
-          <div>
-            <span className="font-display font-bold text-lg text-foreground">
-              Cliente <span className="text-gradient-vip">VIP</span>
+          <div className="relative">
+            <span className="font-display font-bold text-2xl text-foreground block leading-tight">
+              Cliente <span className="bg-clip-text text-transparent font-extrabold" style={{
+                backgroundImage: 'linear-gradient(to right, #a41316, #8b0f12, #a41316)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent'
+              }}>VIP</span>
             </span>
-            <p className="text-[10px] text-muted-foreground -mt-1">
+            <p className="text-sm text-muted-foreground font-medium -mt-0.5 tracking-wide">
               Auto Shopping Itapoan
             </p>
           </div>
         </a>
 
-        {/* Navigation */}
+        {/* Navigation - Centered */}
         {showNav && (
-          <nav className="hidden md:flex items-center gap-6">
-            <a href="#beneficios" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <nav className="hidden md:flex items-center gap-8 mx-auto">
+            <a href="#beneficios" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
               Benefícios
             </a>
-            <a href="#ranking" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <a href="#ranking" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
               Ranking
             </a>
-            <a href="#contato" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <a href="#contato" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
               Contato
             </a>
           </nav>

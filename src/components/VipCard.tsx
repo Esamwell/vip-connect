@@ -84,9 +84,28 @@ export function VipCard({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="w-full max-w-md mx-auto"
+      className="w-full max-w-md mx-auto perspective-1000"
+      style={{ perspective: '1000px' }}
     >
-      <div className="relative gradient-card rounded-2xl p-6 shadow-card overflow-hidden">
+      <motion.div
+        className="relative gradient-card rounded-2xl p-6 shadow-card overflow-hidden transform-gpu transition-all duration-500 group cursor-pointer"
+        whileHover={{ 
+          scale: 1.05,
+          rotateY: 8,
+          rotateX: -8,
+          y: -15,
+          z: 20,
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+        }}
+        transition={{
+          type: "spring",
+          stiffness: 300,
+          damping: 20
+        }}
+        style={{
+          transformStyle: 'preserve-3d',
+        }}
+      >
         {/* Shine effect overlay */}
         <div className="absolute inset-0 shine-effect pointer-events-none" />
         
@@ -200,7 +219,12 @@ export function VipCard({
             </p>
           )}
         </div>
-      </div>
+        
+        {/* Efeito de brilho no hover */}
+        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-2xl">
+          <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent rounded-2xl" />
+        </div>
+      </motion.div>
     </motion.div>
   );
 }

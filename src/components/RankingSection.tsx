@@ -55,7 +55,11 @@ export function RankingSection() {
           viewport={{ once: true }}
           className="text-center mb-16"
         >
-          <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-vip-gold/10 text-vip-gold-dark text-sm font-medium mb-4">
+          <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium mb-4 border" style={{ 
+            backgroundColor: 'rgba(164, 19, 22, 0.1)',
+            color: '#a41316',
+            borderColor: 'rgba(164, 19, 22, 0.2)'
+          }}>
             <Trophy className="w-4 h-4" />
             Ranking de Lojas
           </span>
@@ -71,7 +75,7 @@ export function RankingSection() {
         <div className="max-w-2xl mx-auto">
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-vip-gold" />
+              <Loader2 className="w-8 h-8 animate-spin" style={{ color: '#a41316' }} />
             </div>
           ) : error || ranking.length === 0 ? (
             <div className="text-center py-12">
@@ -118,7 +122,7 @@ export function RankingSection() {
             className="mt-8 text-center"
           >
             <p className="text-sm text-muted-foreground flex items-center justify-center gap-2">
-              <Star className="w-4 h-4 text-vip-gold fill-vip-gold" />
+              <Star className="w-4 h-4 fill-[#a41316]" style={{ color: '#a41316' }} />
               Avaliações verificadas de clientes VIP reais
             </p>
           </motion.div>

@@ -60,14 +60,12 @@ export function StoreRankingCard({
               {[1, 2, 3, 4, 5].map((star) => {
                 // Converter nota de 0-10 para 0-5 para as estrelas
                 const ratingInStars = (rating / 2);
+                const isFilled = star <= Math.round(ratingInStars);
                 return (
                   <Star
                     key={star}
-                    className={`w-4 h-4 ${
-                      star <= Math.round(ratingInStars)
-                        ? 'text-vip-gold fill-vip-gold'
-                        : 'text-muted-foreground/30'
-                    }`}
+                    className={`w-4 h-4 ${!isFilled ? 'text-muted-foreground/30' : ''}`}
+                    style={isFilled ? { color: '#a41316', fill: '#a41316' } : {}}
                   />
                 );
               })}
