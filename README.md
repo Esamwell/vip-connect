@@ -422,6 +422,7 @@ Consulte [`database/README.md`](database/README.md) para:
 - [`BACKEND_SETUP.md`](BACKEND_SETUP.md) - Guia de setup do backend
 - [`README_ENV.md`](README_ENV.md) - Guia de variáveis de ambiente
 - [`FRONTEND_BACKEND_CONECTADO.md`](FRONTEND_BACKEND_CONECTADO.md) - Guia de integração
+- [`DATABASE_MIGRATION.md`](DATABASE_MIGRATION.md) - 💾 **Guia completo de backup e migração de banco de dados**
 
 ## 🔧 Scripts Disponíveis
 

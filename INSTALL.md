@@ -4,13 +4,35 @@
 
 Para instalação automatizada em uma VPS com Coolify, use nosso script:
 
+### Opção 1: Executar Diretamente (Mais Rápido)
+
 ```bash
 # Conectar à VPS
 ssh root@seu-ip-vps
 
-# Executar script de instalação
+# Executar script de instalação diretamente
 curl -fsSL https://raw.githubusercontent.com/seu-usuario/vip-connect/main/scripts/install-coolify-vip-connect.sh | bash
 ```
+
+⚠️ **IMPORTANTE**: Substitua `seu-usuario` pela URL real do seu repositório GitHub!
+
+### Opção 2: Clonar Repositório Primeiro
+
+```bash
+# Conectar à VPS
+ssh root@seu-ip-vps
+
+# Clonar repositório
+git clone https://github.com/seu-usuario/vip-connect.git
+cd vip-connect
+
+# Executar script
+bash scripts/install-coolify-vip-connect.sh
+```
+
+### Problema: Script não encontrado?
+
+Se receber erro `No such file or directory`, veja [`QUICK_START_VPS.md`](QUICK_START_VPS.md) para soluções.
 
 O script irá:
 - ✅ Instalar Coolify automaticamente

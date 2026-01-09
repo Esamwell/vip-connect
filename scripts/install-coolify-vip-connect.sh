@@ -27,6 +27,12 @@ POSTGRES_PASSWORD=""
 JWT_SECRET=""
 COOLIFY_URL=""
 COOLIFY_TOKEN=""
+MIGRATE_DB="n"
+BACKUP_FILE_PATH=""
+LOCAL_DB_HOST=""
+LOCAL_DB_PORT=""
+LOCAL_DB_USER=""
+LOCAL_DB_NAME=""
 
 # Funções auxiliares
 print_header() {
@@ -91,6 +97,101 @@ collect_info() {
     read -p "Digite o domínio do frontend (ex: asibeneficios.autoshoppingitapoan.com.br): " FRONTEND_DOMAIN
     read -p "Digite o domínio do backend (ex: api.asibeneficios.autoshoppingitapoan.com.br): " BACKEND_DOMAIN
 
+    # Perguntar sobre migração de banco
+    echo ""
+    print_info "Migração de Banco de Dados"
+    echo "Você tem um banco de dados existente em localhost que deseja migrar?"
+    read -p "Migrar banco existente? (y/n) [n]: " MIGRATE_DB
+    MIGRATE_DB=${MIGRATE_DB:-n}
+    
+    BACKUP_FILE_PATH=""
+    if [[ $MIGRATE_DB =~ ^[Yy]$ ]]; then
+        echo ""
+        print_info "Opções para migração:"
+        echo "  1. Já tenho um arquivo de backup"
+        echo "  2. Fazer backup agora do banco local"
+        read -p "Escolha uma opção (1 ou 2): " BACKUP_OPTION
+        
+        if [ "$BACKUP_OPTION" = "1" ]; then
+            read -p "Digite o caminho completo do arquivo de backup: " BACKUP_FILE_PATH
+            if [ ! -f "$BACKUP_FILE_PATH" ]; then
+                print_warning "Arquivo não encontrado localmente. Você precisará transferir para a VPS depois."
+                read -p "Digite o caminho do arquivo na VPS (ou pressione Enter para pular): " BACKUP_FILE_PATH
+            fi
+        elif [ "$BACKUP_OPTION" = "2" ]; then
+            # Tentar ler credenciais do .env se existir
+            if [ -f ".env" ]; then
+                print_info "Lendo credenciais do arquivo .env..."
+                # Extrair valores do .env (removendo VITE_ prefix se existir)
+                ENV_DB_HOST=$(grep -E "^VITE_DATABASE_HOST=" .env 2>/dev/null | cut -d '=' -f2 | tr -d '"' | tr -d "'" || echo "")
+                ENV_DB_PORT=$(grep -E "^VITE_DATABASE_PORT=" .env 2>/dev/null | cut -d '=' -f2 | tr -d '"' | tr -d "'" || echo "")
+                ENV_DB_NAME=$(grep -E "^VITE_DATABASE_NAME=" .env 2>/dev/null | cut -d '=' -f2 | tr -d '"' | tr -d "'" || echo "")
+                ENV_DB_USER=$(grep -E "^VITE_DATABASE_USER=" .env 2>/dev/null | cut -d '=' -f2 | tr -d '"' | tr -d "'" || echo "")
+                ENV_DB_PASSWORD=$(grep -E "^VITE_DATABASE_PASSWORD=" .env 2>/dev/null | cut -d '=' -f2 | tr -d '"' | tr -d "'" || echo "")
+                
+                # Usar valores do .env como padrão se encontrados
+                DEFAULT_DB_HOST=${ENV_DB_HOST:-localhost}
+                DEFAULT_DB_PORT=${ENV_DB_PORT:-5432}
+                DEFAULT_DB_USER=${ENV_DB_USER:-postgres}
+                DEFAULT_DB_NAME=${ENV_DB_NAME:-vip_connect}
+                
+                if [ -n "$ENV_DB_HOST" ] || [ -n "$ENV_DB_PORT" ] || [ -n "$ENV_DB_USER" ] || [ -n "$ENV_DB_NAME" ]; then
+                    print_success "Credenciais encontradas no .env!"
+                    echo "  Host: $DEFAULT_DB_HOST"
+                    echo "  Porta: $DEFAULT_DB_PORT"
+                    echo "  Usuário: $DEFAULT_DB_USER"
+                    echo "  Banco: $DEFAULT_DB_NAME"
+                    echo ""
+                fi
+            else
+                DEFAULT_DB_HOST="localhost"
+                DEFAULT_DB_PORT="5432"
+                DEFAULT_DB_USER="postgres"
+                DEFAULT_DB_NAME="vip_connect"
+            fi
+            
+            read -p "Host do PostgreSQL local [$DEFAULT_DB_HOST]: " LOCAL_DB_HOST
+            LOCAL_DB_HOST=${LOCAL_DB_HOST:-$DEFAULT_DB_HOST}
+            read -p "Porta do PostgreSQL local [$DEFAULT_DB_PORT]: " LOCAL_DB_PORT
+            LOCAL_DB_PORT=${LOCAL_DB_PORT:-$DEFAULT_DB_PORT}
+            read -p "Usuário do PostgreSQL local [$DEFAULT_DB_USER]: " LOCAL_DB_USER
+            LOCAL_DB_USER=${LOCAL_DB_USER:-$DEFAULT_DB_USER}
+            read -p "Nome do banco de dados [$DEFAULT_DB_NAME]: " LOCAL_DB_NAME
+            LOCAL_DB_NAME=${LOCAL_DB_NAME:-$DEFAULT_DB_NAME}
+            
+            # Perguntar senha se não encontrada no .env
+            if [ -z "$ENV_DB_PASSWORD" ]; then
+                read -sp "Senha do PostgreSQL: " LOCAL_DB_PASSWORD
+                echo ""
+                export PGPASSWORD="$LOCAL_DB_PASSWORD"
+            else
+                print_info "Usando senha do arquivo .env"
+                export PGPASSWORD="$ENV_DB_PASSWORD"
+            fi
+            
+            BACKUP_FILE_NAME="vip_connect_backup_$(date +%Y%m%d_%H%M%S).dump"
+            BACKUP_FILE_PATH="/tmp/$BACKUP_FILE_NAME"
+            
+            print_info "Criando backup do banco local..."
+            print_info "Conectando em: $LOCAL_DB_HOST:$LOCAL_DB_PORT/$LOCAL_DB_NAME como $LOCAL_DB_USER"
+            
+            if pg_dump -h "$LOCAL_DB_HOST" -p "$LOCAL_DB_PORT" -U "$LOCAL_DB_USER" -d "$LOCAL_DB_NAME" -F c -f "$BACKUP_FILE_PATH" 2>/dev/null; then
+                print_success "Backup criado: $BACKUP_FILE_PATH"
+                # Limpar senha da memória
+                unset PGPASSWORD
+            else
+                print_error "Erro ao criar backup. Verifique as credenciais."
+                unset PGPASSWORD
+                read -p "Deseja continuar sem migração? (y/n): " continue_without
+                if [[ ! $continue_without =~ ^[Yy]$ ]]; then
+                    exit 1
+                fi
+                BACKUP_FILE_PATH=""
+                MIGRATE_DB="n"
+            fi
+        fi
+    fi
+
     # Gerar senha aleatória para PostgreSQL se não fornecida
     read -sp "Digite a senha do PostgreSQL (ou pressione Enter para gerar automaticamente): " POSTGRES_PASSWORD
     echo ""
@@ -121,6 +222,10 @@ collect_info() {
     echo "  Backend: $BACKEND_DOMAIN"
     echo "  PostgreSQL Password: [oculto]"
     echo "  JWT Secret: [oculto]"
+    if [ "$MIGRATE_DB" = "y" ] && [ -n "$BACKUP_FILE_PATH" ]; then
+        echo "  Migração de banco: Sim"
+        echo "  Arquivo de backup: $BACKUP_FILE_PATH"
+    fi
     echo ""
     read -p "Continuar com a instalação? (y/n): " confirm
     if [[ ! $confirm =~ ^[Yy]$ ]]; then
@@ -208,10 +313,23 @@ create_docker_network() {
     COOLIFY_NETWORK=$(docker network ls --format '{{.Name}}' | grep -i coolify | head -n 1)
     
     if [ -n "$COOLIFY_NETWORK" ]; then
-        print_success "Rede Coolify encontrada: $COOLIFY_NETWORK"
-        NETWORK_NAME="$COOLIFY_NETWORK"
+        # Verificar se a rede realmente existe e está acessível
+        if docker network inspect "$COOLIFY_NETWORK" > /dev/null 2>&1; then
+            print_success "Rede Coolify encontrada: $COOLIFY_NETWORK"
+            NETWORK_NAME="$COOLIFY_NETWORK"
+        else
+            print_warning "Rede Coolify detectada mas não acessível. Criando rede própria..."
+            NETWORK_NAME="vip-connect-network"
+            if ! docker network inspect "$NETWORK_NAME" > /dev/null 2>&1; then
+                print_info "Criando rede Docker compartilhada: $NETWORK_NAME"
+                docker network create "$NETWORK_NAME" > /dev/null 2>&1 || print_info "Rede já existe"
+                print_success "Rede Docker criada: $NETWORK_NAME"
+            else
+                print_info "Rede Docker já existe: $NETWORK_NAME"
+            fi
+        fi
     else
-        # Criar rede compartilhada
+        # Criar rede compartilhada própria
         NETWORK_NAME="vip-connect-network"
         if ! docker network inspect "$NETWORK_NAME" > /dev/null 2>&1; then
             print_info "Criando rede Docker compartilhada: $NETWORK_NAME"
@@ -255,7 +373,10 @@ create_postgresql_automatically() {
 
     # Criar e iniciar container PostgreSQL
     print_info "Criando container PostgreSQL..."
-    docker run -d \
+    print_info "Usando rede: $NETWORK_NAME"
+    
+    # Tentar criar com a rede especificada
+    if docker run -d \
         --name vip-connect-db \
         --restart unless-stopped \
         --network "$NETWORK_NAME" \
@@ -264,11 +385,27 @@ create_postgresql_automatically() {
         -e PGDATA=/var/lib/postgresql/data/pgdata \
         -v vip-connect-db-data:/var/lib/postgresql/data \
         -p 5432:5432 \
-        postgres:15-alpine
-
-    if [ $? -ne 0 ]; then
-        print_error "Falha ao criar container PostgreSQL"
-        return 1
+        postgres:15-alpine 2>&1; then
+        print_success "Container PostgreSQL criado com sucesso"
+    else
+        print_warning "Erro ao criar com rede $NETWORK_NAME. Tentando sem rede específica..."
+        # Tentar criar sem rede específica (usará bridge padrão)
+        if docker run -d \
+            --name vip-connect-db \
+            --restart unless-stopped \
+            -e POSTGRES_PASSWORD="$POSTGRES_PASSWORD" \
+            -e POSTGRES_DB=postgres \
+            -e PGDATA=/var/lib/postgresql/data/pgdata \
+            -v vip-connect-db-data:/var/lib/postgresql/data \
+            -p 5432:5432 \
+            postgres:15-alpine 2>&1; then
+            print_success "Container PostgreSQL criado (sem rede específica)"
+            print_info "Nota: O container está na rede bridge padrão"
+            NETWORK_NAME="bridge"
+        else
+            print_error "Falha ao criar container PostgreSQL"
+            return 1
+        fi
     fi
 
     print_success "Container PostgreSQL criado"
@@ -348,6 +485,104 @@ create_postgresql_automatically() {
     echo "$NETWORK_NAME" > /tmp/vip-connect-network-name.txt
     
     return 0
+}
+
+# Migrar banco de dados existente
+migrate_existing_database() {
+    if [ -z "$BACKUP_FILE_PATH" ] || [ "$MIGRATE_DB" != "y" ]; then
+        return 0
+    fi
+    
+    print_header "Migrando Banco de Dados Existente"
+    
+    # Verificar se arquivo existe localmente (na máquina onde está rodando o script)
+    if [ -f "$BACKUP_FILE_PATH" ] && [ ! -f "/tmp/$(basename $BACKUP_FILE_PATH)" ]; then
+        print_info "Arquivo de backup encontrado localmente: $BACKUP_FILE_PATH"
+        print_warning "Este arquivo precisa estar na VPS para ser restaurado"
+        print_info "Após a instalação, transfira o arquivo e execute:"
+        print_info "  scp $BACKUP_FILE_PATH root@seu-ip-vps:/tmp/"
+        print_info "  bash scripts/migrate-database.sh /tmp/$(basename $BACKUP_FILE_PATH)"
+        return 0
+    fi
+    
+    # Verificar se arquivo existe na VPS
+    if [ ! -f "$BACKUP_FILE_PATH" ]; then
+        print_warning "Arquivo de backup não encontrado: $BACKUP_FILE_PATH"
+        print_info "Você pode migrar o banco depois usando:"
+        print_info "  bash scripts/migrate-database.sh /caminho/do/backup.dump"
+        return 0
+    fi
+    
+    # Verificar se container PostgreSQL existe
+    if ! docker ps --format '{{.Names}}' | grep -q "^vip-connect-db$"; then
+        print_warning "Container PostgreSQL não encontrado. Migração será feita após criação."
+        return 0
+    fi
+    
+    # Aguardar PostgreSQL estar pronto
+    print_info "Aguardando PostgreSQL estar pronto..."
+    max_attempts=30
+    attempt=0
+    
+    while [ $attempt -lt $max_attempts ]; do
+        if docker exec vip-connect-db pg_isready -U postgres > /dev/null 2>&1; then
+            break
+        fi
+        attempt=$((attempt + 1))
+        sleep 2
+    done
+    
+    if [ $attempt -eq $max_attempts ]; then
+        print_warning "PostgreSQL não está pronto. Migração será feita manualmente depois."
+        return 0
+    fi
+    
+    # Usar script de migração se disponível
+    if [ -f "scripts/migrate-database.sh" ]; then
+        print_info "Usando script de migração automatizado..."
+        chmod +x scripts/migrate-database.sh 2>/dev/null || true
+        bash scripts/migrate-database.sh "$BACKUP_FILE_PATH" vip-connect-db vip_connect postgres || {
+            print_warning "Erro na migração automática. Tente manualmente depois."
+        }
+    else
+        # Migração manual básica
+        print_info "Fazendo migração manual..."
+        
+        # Copiar backup para container
+        BACKUP_NAME=$(basename "$BACKUP_FILE_PATH")
+        docker cp "$BACKUP_FILE_PATH" "vip-connect-db:/tmp/$BACKUP_NAME" || {
+            print_error "Erro ao copiar backup para container"
+            return 1
+        }
+        
+        # Verificar se banco existe
+        DB_EXISTS=$(docker exec vip-connect-db psql -U postgres -lqt 2>/dev/null | cut -d \| -f 1 | grep -qw "vip_connect" && echo "yes" || echo "no")
+        
+        if [ "$DB_EXISTS" = "no" ]; then
+            docker exec vip-connect-db createdb -U postgres vip_connect
+        fi
+        
+        # Criar extensões
+        docker exec vip-connect-db psql -U postgres -d vip_connect -c "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"; CREATE EXTENSION IF NOT EXISTS \"pg_trgm\";" > /dev/null 2>&1
+        
+        # Restaurar backup
+        print_info "Restaurando backup (isso pode levar alguns minutos)..."
+        if [[ "$BACKUP_FILE_PATH" == *.sql ]] || [[ "$BACKUP_FILE_PATH" == *.sql.gz ]]; then
+            if [[ "$BACKUP_FILE_PATH" == *.gz ]]; then
+                docker exec vip-connect-db gunzip "/tmp/$BACKUP_NAME"
+                BACKUP_NAME="${BACKUP_NAME%.gz}"
+            fi
+            docker exec -i vip-connect-db psql -U postgres -d vip_connect < "/tmp/$BACKUP_NAME" > /dev/null 2>&1 || {
+                print_warning "Houve avisos durante restauração SQL"
+            }
+        else
+            docker exec vip-connect-db pg_restore -U postgres -d vip_connect -v "/tmp/$BACKUP_NAME" > /dev/null 2>&1 || {
+                print_warning "Houve avisos durante restauração"
+            }
+        fi
+        
+        print_success "Migração concluída!"
+    fi
 }
 
 # Criar PostgreSQL via Coolify (se token fornecido)
@@ -638,6 +873,24 @@ main() {
     create_database_setup_script
     generate_coolify_config
     
+    # Migrar banco se solicitado
+    if [ "$MIGRATE_DB" = "y" ] && [ -n "$BACKUP_FILE_PATH" ]; then
+        # Se o backup foi criado localmente, informar sobre transferência
+        if [ -f "$BACKUP_FILE_PATH" ] && [[ "$BACKUP_FILE_PATH" == /tmp/* ]]; then
+            print_info "Backup criado localmente: $BACKUP_FILE_PATH"
+            print_info "Este arquivo precisa ser transferido para a VPS antes da migração"
+            print_info "Execute na VPS após transferir:"
+            print_info "  bash scripts/migrate-database.sh $BACKUP_FILE_PATH"
+        elif [ -f "$BACKUP_FILE_PATH" ]; then
+            # Arquivo já está na VPS, pode migrar agora
+            migrate_existing_database
+        else
+            print_warning "Arquivo de backup não encontrado: $BACKUP_FILE_PATH"
+            print_info "Você pode migrar depois usando:"
+            print_info "  bash scripts/migrate-database.sh /caminho/do/backup.dump"
+        fi
+    fi
+    
     print_header "✅ Instalação Concluída!"
     
     echo ""
@@ -824,6 +1077,43 @@ CREDENTIALS
     print_success "Credenciais salvas em: /tmp/vip-connect-credentials.txt"
     print_warning "Este arquivo contém informações sensíveis. Proteja-o adequadamente!"
     echo ""
+    
+    # Informação sobre migração de banco
+    if [ "$POSTGRES_CREATED" = true ]; then
+        if [ "$MIGRATE_DB" != "y" ] || [ -z "$BACKUP_FILE_PATH" ]; then
+            echo -e "${BLUE}════════════════════════════════════════════════════════════${NC}"
+            echo -e "${BLUE}  💾 MIGRAÇÃO DE BANCO DE DADOS${NC}"
+            echo -e "${BLUE}════════════════════════════════════════════════════════════${NC}"
+            echo ""
+            print_info "Se você tem um banco de dados existente em localhost que deseja migrar:"
+            echo ""
+            echo "1. Faça backup do banco local:"
+            echo "   pg_dump -U postgres -d vip_connect -F c -f backup.dump"
+            echo ""
+            echo "2. Transfira para a VPS:"
+            echo "   scp backup.dump root@seu-ip-vps:/tmp/"
+            echo ""
+            echo "3. Use o script de migração:"
+            echo "   bash scripts/migrate-database.sh /tmp/backup.dump"
+            echo ""
+            echo "Ou consulte: DATABASE_MIGRATION.md para guia completo"
+            echo ""
+        elif [ -f "$BACKUP_FILE_PATH" ] && [ ! -f "/tmp/$(basename $BACKUP_FILE_PATH)" ]; then
+            echo -e "${BLUE}════════════════════════════════════════════════════════════${NC}"
+            echo -e "${BLUE}  💾 MIGRAÇÃO DE BANCO DE DADOS${NC}"
+            echo -e "${BLUE}════════════════════════════════════════════════════════════${NC}"
+            echo ""
+            print_info "Backup criado localmente: $BACKUP_FILE_PATH"
+            echo ""
+            echo "Para migrar o banco:"
+            echo "1. Transfira o backup para a VPS:"
+            echo "   scp $BACKUP_FILE_PATH root@seu-ip-vps:/tmp/"
+            echo ""
+            echo "2. Execute o script de migração na VPS:"
+            echo "   bash scripts/migrate-database.sh /tmp/$(basename $BACKUP_FILE_PATH)"
+            echo ""
+        fi
+    fi
 }
 
 # Executar função principal
