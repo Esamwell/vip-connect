@@ -641,36 +641,186 @@ main() {
     print_success "Coolify foi instalado com sucesso!"
     
     # Verificar se PostgreSQL foi criado
+    POSTGRES_CREATED=false
+    POSTGRES_IP=""
+    POSTGRES_STATUS=""
     if docker ps --format '{{.Names}}' | grep -q "^vip-connect-db$"; then
-        echo ""
-        print_success "PostgreSQL foi criado e configurado automaticamente!"
-        print_info "Container: vip-connect-db"
-        print_info "Status: $(docker ps --filter name=vip-connect-db --format '{{.Status}}')"
+        POSTGRES_CREATED=true
+        POSTGRES_STATUS=$(docker ps --filter name=vip-connect-db --format '{{.Status}}')
+        POSTGRES_IP=$(docker inspect vip-connect-db 2>/dev/null | grep -A 20 "Networks" | grep "IPAddress" | head -1 | awk '{print $2}' | tr -d '",' || echo "N/A")
     fi
     
+    # Ler nome da rede
+    NETWORK_NAME_FINAL=$(cat /tmp/vip-connect-network-name.txt 2>/dev/null || echo "N/A")
+    
+    # Gerar resumo completo
     echo ""
-    print_info "Próximos passos:"
+    echo -e "${BLUE}════════════════════════════════════════════════════════════${NC}"
+    echo -e "${BLUE}  📋 RESUMO COMPLETO DA INSTALAÇÃO${NC}"
+    echo -e "${BLUE}════════════════════════════════════════════════════════════${NC}"
     echo ""
-    echo "1. Acesse o Coolify: $COOLIFY_URL"
-    echo "2. Configure sua conta de administrador"
-    echo "3. Siga as instruções em: /tmp/vip-connect-coolify-config.txt"
+    
+    echo -e "${GREEN}🌐 URLs E ACESSOS:${NC}"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "  Coolify:                    $COOLIFY_URL"
+    echo "  Frontend (a configurar):    https://$FRONTEND_DOMAIN"
+    echo "  Backend (a configurar):      https://$BACKEND_DOMAIN"
     echo ""
-    echo "Para visualizar as instruções completas:"
-    echo "  cat /tmp/vip-connect-coolify-config.txt"
+    
+    echo -e "${GREEN}📦 REPOSITÓRIO GITHUB:${NC}"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "  Repositório:                $GITHUB_REPO"
+    echo "  Branch:                     $GITHUB_BRANCH"
     echo ""
-    echo "Para verificar o PostgreSQL:"
-    echo "  docker ps | grep vip-connect-db"
-    echo "  docker logs vip-connect-db"
-    echo ""
-    print_warning "IMPORTANTE: Guarde as senhas geradas em local seguro!"
-    echo ""
-    echo "PostgreSQL Password: $POSTGRES_PASSWORD"
-    echo "JWT Secret: $JWT_SECRET"
-    echo ""
-    if [ -f /tmp/vip-connect-network-name.txt ]; then
-        echo "Rede Docker: $(cat /tmp/vip-connect-network-name.txt)"
+    
+    if [ "$POSTGRES_CREATED" = true ]; then
+        echo -e "${GREEN}🗄️  POSTGRESQL (CRIADO AUTOMATICAMENTE):${NC}"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "  Container:                 vip-connect-db"
+        echo "  Status:                     $POSTGRES_STATUS"
+        echo "  IP do Container:            $POSTGRES_IP"
+        echo "  Rede Docker:                $NETWORK_NAME_FINAL"
+        echo "  Porta:                      5432"
+        echo "  Host (para Coolify):        vip-connect-db"
+        echo "  Host (alternativo - IP):    $POSTGRES_IP"
+        echo "  Usuário:                    postgres"
+        echo "  Senha:                      ${RED}$POSTGRES_PASSWORD${NC}"
+        echo "  Banco de Dados:             vip_connect"
+        echo "  Porta Externa:              5432 (localhost:5432)"
+        echo ""
+    else
+        echo -e "${YELLOW}🗄️  POSTGRESQL:${NC}"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "  Status:                     Não criado automaticamente"
+        echo "  Senha configurada:          ${RED}$POSTGRES_PASSWORD${NC}"
+        echo "  (Siga instruções em /tmp/vip-connect-coolify-config.txt)"
         echo ""
     fi
+    
+    echo -e "${GREEN}🔐 CREDENCIAIS E SECRETS:${NC}"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "  PostgreSQL Password:         ${RED}$POSTGRES_PASSWORD${NC}"
+    echo "  JWT Secret:                  ${RED}$JWT_SECRET${NC}"
+    echo ""
+    
+    echo -e "${GREEN}⚙️  VARIÁVEIS DE AMBIENTE PARA O BACKEND:${NC}"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "  DATABASE_HOST=vip-connect-db"
+    echo "  DATABASE_PORT=5432"
+    echo "  DATABASE_NAME=vip_connect"
+    echo "  DATABASE_USER=postgres"
+    echo "  DATABASE_PASSWORD=$POSTGRES_PASSWORD"
+    echo "  JWT_SECRET=$JWT_SECRET"
+    echo "  CORS_ORIGIN=https://$FRONTEND_DOMAIN"
+    echo "  NODE_ENV=production"
+    echo "  PORT=3000"
+    echo ""
+    
+    echo -e "${GREEN}⚙️  VARIÁVEIS DE AMBIENTE PARA O FRONTEND:${NC}"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "  VITE_API_URL=https://$BACKEND_DOMAIN/api"
+    echo "  VITE_NODE_ENV=production"
+    echo ""
+    
+    echo -e "${GREEN}📁 ARQUIVOS GERADOS:${NC}"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "  Instruções completas:          /tmp/vip-connect-coolify-config.txt"
+    echo "  Script setup banco:            /tmp/setup-vip-connect-db.sh"
+    if [ -f /tmp/vip-connect-network-name.txt ]; then
+        echo "  Nome da rede Docker:          /tmp/vip-connect-network-name.txt"
+    fi
+    echo ""
+    
+    echo -e "${GREEN}🔧 COMANDOS ÚTEIS:${NC}"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "  Ver instruções:              cat /tmp/vip-connect-coolify-config.txt"
+    if [ "$POSTGRES_CREATED" = true ]; then
+        echo "  Status PostgreSQL:            docker ps | grep vip-connect-db"
+        echo "  Logs PostgreSQL:               docker logs vip-connect-db"
+        echo "  Conectar ao banco:             docker exec -it vip-connect-db psql -U postgres -d vip_connect"
+        echo "  Reiniciar PostgreSQL:           docker restart vip-connect-db"
+    fi
+    echo ""
+    
+    echo -e "${BLUE}════════════════════════════════════════════════════════════${NC}"
+    echo ""
+    
+    print_warning "⚠️  IMPORTANTE: Guarde estas credenciais em local seguro!"
+    echo ""
+    print_info "📝 Próximos passos:"
+    echo ""
+    echo "  1. Acesse o Coolify: $COOLIFY_URL"
+    echo "  2. Configure sua conta de administrador"
+    echo "  3. Configure o Backend no Coolify usando as variáveis acima"
+    echo "  4. Configure o Frontend no Coolify usando as variáveis acima"
+    echo "  5. Siga as instruções detalhadas em: /tmp/vip-connect-coolify-config.txt"
+    echo ""
+    
+    # Salvar credenciais em arquivo seguro
+    cat > /tmp/vip-connect-credentials.txt << CREDENTIALS
+════════════════════════════════════════════════════════════
+  🔐 CREDENCIAIS VIP CONNECT - GUARDE EM LOCAL SEGURO!
+════════════════════════════════════════════════════════════
+
+Data da instalação: $(date)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  URLs
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Coolify:                    $COOLIFY_URL
+Frontend:                    https://$FRONTEND_DOMAIN
+Backend:                     https://$BACKEND_DOMAIN
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Repositório GitHub
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Repositório:                $GITHUB_REPO
+Branch:                     $GITHUB_BRANCH
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  PostgreSQL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Container:                  vip-connect-db
+Host:                       vip-connect-db
+IP:                         $POSTGRES_IP
+Porta:                      5432
+Rede Docker:                $NETWORK_NAME_FINAL
+Usuário:                    postgres
+Senha:                      $POSTGRES_PASSWORD
+Banco de Dados:             vip_connect
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Secrets
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+JWT Secret:                 $JWT_SECRET
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Variáveis de Ambiente - Backend
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DATABASE_HOST=vip-connect-db
+DATABASE_PORT=5432
+DATABASE_NAME=vip_connect
+DATABASE_USER=postgres
+DATABASE_PASSWORD=$POSTGRES_PASSWORD
+JWT_SECRET=$JWT_SECRET
+CORS_ORIGIN=https://$FRONTEND_DOMAIN
+NODE_ENV=production
+PORT=3000
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Variáveis de Ambiente - Frontend
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+VITE_API_URL=https://$BACKEND_DOMAIN/api
+VITE_NODE_ENV=production
+
+════════════════════════════════════════════════════════════
+CREDENTIALS
+    
+    chmod 600 /tmp/vip-connect-credentials.txt 2>/dev/null || true
+    
+    print_success "Credenciais salvas em: /tmp/vip-connect-credentials.txt"
+    print_warning "Este arquivo contém informações sensíveis. Proteja-o adequadamente!"
+    echo ""
 }
 
 # Executar função principal
