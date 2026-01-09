@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { api } from '@/services/api';
-import { Calendar, AlertCircle, CheckCircle, Car } from 'lucide-react';
+import { Calendar, AlertCircle, CheckCircle, Car, RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -12,8 +12,29 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { format } from 'date-fns';
+import { format, isValid, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale/pt-BR';
+import { useToast } from '@/hooks/use-toast';
+
+// Função auxiliar para formatar datas de forma segura
+const formatDate = (dateString: string | null | undefined): string => {
+  if (!dateString) return '-';
+  
+  try {
+    // Tenta fazer parse da data
+    const date = typeof dateString === 'string' ? parseISO(dateString) : new Date(dateString);
+    
+    // Verifica se a data é válida
+    if (!isValid(date)) {
+      return '-';
+    }
+    
+    return format(date, 'dd/MM/yyyy', { locale: ptBR });
+  } catch (error) {
+    console.error('Erro ao formatar data:', dateString, error);
+    return '-';
+  }
+};
 
 interface ClienteVencimento {
   id: string;
@@ -21,7 +42,7 @@ interface ClienteVencimento {
   whatsapp: string;
   loja_nome: string;
   data_validade: string;
-  dias_para_vencer: number;
+  dias_restantes: number | string; // Pode vir como número ou string do PostgreSQL
 }
 
 interface ClienteRenovado {
@@ -31,18 +52,15 @@ interface ClienteRenovado {
   whatsapp: string;
   loja_nome: string;
   data_renovacao: string;
-  data_validade: string;
+  nova_data_validade: string;
   motivo?: string;
-  veiculo_marca?: string;
-  veiculo_modelo?: string;
-  veiculo_ano?: number;
-  veiculo_placa?: string;
 }
 
 export default function Renovacoes() {
   const [vencendo, setVencendo] = useState<ClienteVencimento[]>([]);
   const [renovados, setRenovados] = useState<ClienteRenovado[]>([]);
   const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
   useEffect(() => {
     loadRenovacoes();
@@ -52,14 +70,37 @@ export default function Renovacoes() {
     try {
       setLoading(true);
       const [vencendoData, renovadosData] = await Promise.all([
-        api.get('/relatorios/clientes-vencimento-proximo').catch(() => []),
-        api.get('/relatorios/clientes-renovados').catch(() => []),
+        api.get<ClienteVencimento[]>('/relatorios/clientes-vencimento-proximo').catch((error: any) => {
+          console.error('Erro ao buscar clientes próximos do vencimento:', error);
+          const errorMessage = error?.response?.data?.error || error?.message || 'Erro desconhecido';
+          toast({
+            title: 'Erro ao carregar dados',
+            description: `Não foi possível carregar clientes próximos do vencimento: ${errorMessage}`,
+            variant: 'destructive',
+          });
+          return [];
+        }),
+        api.get<ClienteRenovado[]>('/relatorios/clientes-renovados').catch((error: any) => {
+          console.error('Erro ao buscar clientes renovados:', error);
+          // Não mostrar toast para renovados pois pode não ser crítico
+          return [];
+        }),
       ]);
+
+      console.log('Dados carregados - Vencendo:', vencendoData);
+      console.log('Dados carregados - Renovados:', renovadosData);
 
       setVencendo(Array.isArray(vencendoData) ? vencendoData : []);
       setRenovados(Array.isArray(renovadosData) ? renovadosData : []);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao carregar renovações:', error);
+      toast({
+        title: 'Erro ao carregar dados',
+        description: error?.message || 'Ocorreu um erro ao carregar as renovações',
+        variant: 'destructive',
+      });
+      setVencendo([]);
+      setRenovados([]);
     } finally {
       setLoading(false);
     }
@@ -68,9 +109,18 @@ export default function Renovacoes() {
   const handleRenovar = async (clienteId: string) => {
     try {
       await api.post(`/renovacao/${clienteId}`);
+      toast({
+        title: 'Sucesso!',
+        description: 'Cliente VIP renovado com sucesso',
+      });
       loadRenovacoes();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao renovar VIP:', error);
+      toast({
+        title: 'Erro ao renovar VIP',
+        description: error.message || 'Ocorreu um erro ao renovar o cliente VIP',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -84,11 +134,22 @@ export default function Renovacoes() {
 
   return (
     <div className="space-y-6 w-full">
-      <div>
-        <h1 className="text-3xl font-bold tracking-[-0.03em]">Renovações</h1>
-        <p className="text-muted-foreground text-[15px] leading-relaxed">
-          Gerencie renovações e clientes próximos do vencimento
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-[-0.03em]">Renovações</h1>
+          <p className="text-muted-foreground text-[15px] leading-relaxed">
+            Gerencie renovações e clientes próximos do vencimento
+          </p>
+        </div>
+        <Button
+          onClick={loadRenovacoes}
+          disabled={loading}
+          variant="outline"
+          size="sm"
+        >
+          <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+          Atualizar
+        </Button>
       </div>
 
       <Card>
@@ -114,10 +175,23 @@ export default function Renovacoes() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {vencendo.length === 0 ? (
+              {loading ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center text-muted-foreground">
-                    Nenhum cliente próximo do vencimento
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                      Carregando...
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : vencendo.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                    <div className="flex flex-col items-center gap-2">
+                      <AlertCircle className="w-8 h-8 text-muted-foreground/50" />
+                      <p className="font-medium">Nenhum cliente próximo do vencimento</p>
+                      <p className="text-sm">Não há clientes VIP que vençam nos próximos 30 dias</p>
+                    </div>
                   </TableCell>
                 </TableRow>
               ) : (
@@ -127,21 +201,22 @@ export default function Renovacoes() {
                     <TableCell>{cliente.whatsapp}</TableCell>
                     <TableCell>{cliente.loja_nome}</TableCell>
                     <TableCell>
-                      {format(new Date(cliente.data_validade), 'dd/MM/yyyy', {
-                        locale: ptBR,
-                      })}
+                      {formatDate(cliente.data_validade)}
                     </TableCell>
                     <TableCell>
                       <Badge
                         variant={
-                          cliente.dias_para_vencer <= 7
+                          Number(cliente.dias_restantes) <= 7
                             ? 'destructive'
-                            : cliente.dias_para_vencer <= 15
+                            : Number(cliente.dias_restantes) <= 15
                             ? 'default'
                             : 'secondary'
                         }
                       >
-                        {cliente.dias_para_vencer} dias
+                        {Number(cliente.dias_restantes) >= 0 
+                          ? `${cliente.dias_restantes} ${Number(cliente.dias_restantes) === 1 ? 'dia' : 'dias'}`
+                          : 'Vencido'
+                        }
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -177,7 +252,7 @@ export default function Renovacoes() {
                 <TableHead>Cliente</TableHead>
                 <TableHead>WhatsApp</TableHead>
                 <TableHead>Loja</TableHead>
-                <TableHead>Novo Veículo</TableHead>
+                <TableHead>Motivo</TableHead>
                 <TableHead>Data Renovação</TableHead>
                 <TableHead>Nova Validade</TableHead>
               </TableRow>
@@ -196,31 +271,17 @@ export default function Renovacoes() {
                     <TableCell>{cliente.whatsapp}</TableCell>
                     <TableCell>{cliente.loja_nome}</TableCell>
                     <TableCell>
-                      {cliente.veiculo_marca || cliente.veiculo_modelo || cliente.veiculo_ano || cliente.veiculo_placa ? (
-                        <div className="text-sm">
-                          <div className="font-medium">
-                            {cliente.veiculo_marca} {cliente.veiculo_modelo}
-                            {cliente.veiculo_ano && ` (${cliente.veiculo_ano})`}
-                          </div>
-                          {cliente.veiculo_placa && (
-                            <div className="text-xs text-muted-foreground font-mono">
-                              {cliente.veiculo_placa.toUpperCase()}
-                            </div>
-                          )}
-                        </div>
+                      {cliente.motivo ? (
+                        <span className="text-sm">{cliente.motivo}</span>
                       ) : (
-                        <span className="text-muted-foreground text-sm">N/A</span>
+                        <span className="text-muted-foreground text-sm">-</span>
                       )}
                     </TableCell>
                     <TableCell>
-                      {format(new Date(cliente.data_renovacao), 'dd/MM/yyyy', {
-                        locale: ptBR,
-                      })}
+                      {formatDate(cliente.data_renovacao)}
                     </TableCell>
                     <TableCell>
-                      {format(new Date(cliente.data_validade), 'dd/MM/yyyy', {
-                        locale: ptBR,
-                      })}
+                      {formatDate(cliente.nova_data_validade)}
                     </TableCell>
                   </TableRow>
                 ))

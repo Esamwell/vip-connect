@@ -12,7 +12,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Search, Plus, Eye } from 'lucide-react';
+import { Search, Plus, Eye, Download } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale/pt-BR';
 import { useNavigate } from 'react-router-dom';
@@ -26,7 +27,9 @@ export default function Clientes() {
   const [modalOpen, setModalOpen] = useState(false);
   const [clienteModalOpen, setClienteModalOpen] = useState(false);
   const [clienteSelecionado, setClienteSelecionado] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   useEffect(() => {
     loadClientes();
@@ -68,6 +71,77 @@ export default function Clientes() {
     );
   };
 
+  // Função para formatar telefone: remove caracteres não numéricos e adiciona 55 se necessário
+  const formatarTelefone = (whatsapp: string): string => {
+    // Remove todos os caracteres não numéricos
+    let numero = whatsapp.replace(/\D/g, '');
+    
+    // Se não começar com 55, adiciona
+    if (!numero.startsWith('55')) {
+      numero = '55' + numero;
+    }
+    
+    return numero;
+  };
+
+  // Função para exportar contatos em CSV
+  const handleExportarContatos = () => {
+    try {
+      setExporting(true);
+
+      // Usar todos os clientes carregados (não apenas os filtrados)
+      const clientesParaExportar = clientes.length > 0 ? clientes : [];
+
+      if (clientesParaExportar.length === 0) {
+        toast({
+          title: 'Nenhum cliente para exportar',
+          description: 'Não há clientes cadastrados para exportar',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Criar linhas do CSV: telefone,nome
+      const linhasCSV = clientesParaExportar.map((cliente) => {
+        const telefone = formatarTelefone(cliente.whatsapp);
+        const nome = cliente.nome.trim();
+        return `${telefone},${nome}`;
+      });
+
+      // Juntar todas as linhas com quebra de linha
+      const conteudoCSV = linhasCSV.join('\n');
+
+      // Criar blob e fazer download
+      const blob = new Blob([conteudoCSV], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      
+      link.setAttribute('href', url);
+      link.setAttribute('download', `clientes_vip_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: 'Exportação concluída!',
+        description: `${clientesParaExportar.length} contato(s) exportado(s) com sucesso`,
+      });
+    } catch (error: any) {
+      console.error('Erro ao exportar contatos:', error);
+      toast({
+        title: 'Erro ao exportar',
+        description: error.message || 'Ocorreu um erro ao exportar os contatos',
+        variant: 'destructive',
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -85,10 +159,20 @@ export default function Clientes() {
             Gerencie todos os clientes VIP do sistema
           </p>
         </div>
-        <Button onClick={() => setModalOpen(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          Novo Cliente
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={handleExportarContatos}
+            disabled={exporting || clientes.length === 0}
+            variant="outline"
+          >
+            <Download className={`w-4 h-4 mr-2 ${exporting ? 'animate-spin' : ''}`} />
+            {exporting ? 'Exportando...' : 'Exportar Contatos'}
+          </Button>
+          <Button onClick={() => setModalOpen(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Novo Cliente
+          </Button>
+        </div>
       </div>
 
       <NovoClienteModal

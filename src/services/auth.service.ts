@@ -79,5 +79,33 @@ export const authService = {
   async getMe(): Promise<User> {
     return api.get<User>('/auth/me');
   },
+
+  /**
+   * Atualiza o nome do usuário autenticado
+   */
+  async updateProfile(nome: string): Promise<User> {
+    const response = await api.patch<User>('/auth/profile', { nome });
+    
+    // Atualizar no localStorage
+    if (response) {
+      const currentUser = this.getCurrentUser();
+      if (currentUser) {
+        const updatedUser = { ...currentUser, nome };
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+      }
+    }
+    
+    return response;
+  },
+
+  /**
+   * Atualiza a senha do usuário autenticado
+   */
+  async updatePassword(currentPassword: string, newPassword: string): Promise<void> {
+    await api.patch('/auth/password', {
+      currentPassword,
+      newPassword,
+    });
+  },
 };
 
