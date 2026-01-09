@@ -481,6 +481,7 @@ const ClientCard = () => {
               veiculosHistorico={cliente.veiculos_historico}
               qrCodeDigital={cliente.qr_code_digital}
               qrCodeFisico={cliente.qr_code_fisico}
+            customBackground="#a41316"
           />
           </div>
         </motion.div>

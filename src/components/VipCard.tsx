@@ -80,6 +80,14 @@ export function VipCard({
   const StatusIcon = statusInfo.icon;
 
   const qrValue = `https://clientevip.autoshopping.com.br/validate/${clientId}`;
+  
+  // Determinar se o fundo é escuro (vermelho) ou claro (branco)
+  const isDarkBackground = !!customBackground;
+  const textColorClass = isDarkBackground ? 'text-white' : 'text-foreground';
+  const textMutedClass = isDarkBackground ? 'text-white/90' : 'text-muted-foreground';
+  const borderColorClass = isDarkBackground ? 'border-white/20' : 'border-border';
+  const bgOverlayClass = isDarkBackground ? 'bg-white/10' : 'bg-muted/50';
+  const carIconColor = isDarkBackground ? '#ffffff' : '#a41316';
 
   return (
     <motion.div
@@ -106,7 +114,7 @@ export function VipCard({
         }}
         style={{
           transformStyle: 'preserve-3d',
-          ...(customBackground ? { backgroundColor: customBackground } : {}),
+          backgroundColor: customBackground || '#ffffff',
         }}
       >
         {/* Shine effect overlay */}
@@ -117,7 +125,7 @@ export function VipCard({
         
         {/* Decorative car icon - red and transparent */}
         <div className="absolute top-4 right-4 opacity-15 pointer-events-none">
-          <Car className="w-32 h-32" style={{ color: '#ffffff', strokeWidth: 1.5 }} />
+          <Car className="w-32 h-32" style={{ color: carIconColor, strokeWidth: 1.5 }} />
         </div>
         
         {/* Header */}
@@ -127,10 +135,10 @@ export function VipCard({
               <Crown className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h3 className="text-xl font-display font-bold text-vip-gold">
+              <h3 className={`text-xl font-display font-bold ${isDarkBackground ? 'text-vip-gold' : 'text-primary'}`}>
                 Cliente VIP
               </h3>
-              <p className="text-sm text-white/90">
+              <p className={`text-sm ${textMutedClass}`}>
                 Auto Shopping Itapoan
               </p>
             </div>
@@ -143,31 +151,31 @@ export function VipCard({
 
         {/* Client Info */}
         <div className="relative z-10 mb-6">
-          <p className="text-2xl font-bold text-white tracking-wide">
+          <p className={`text-2xl font-bold ${textColorClass} tracking-wide`}>
             {clientName}
           </p>
-          <p className="text-sm text-white/90 mt-1">
+          <p className={`text-sm ${textMutedClass} mt-1`}>
             Loja: {storeName}
           </p>
           {/* Histórico de Veículos */}
           {veiculosHistorico && veiculosHistorico.length > 0 && (
-            <div className="mt-3 pt-3 border-t border-white/20">
-              <div className="flex items-center gap-2 text-white/90 mb-2">
+            <div className={`mt-3 pt-3 border-t ${borderColorClass}`}>
+              <div className={`flex items-center gap-2 ${textMutedClass} mb-2`}>
                 <Car className="w-4 h-4" />
                 <span className="text-xs font-medium">Veículos Comprados</span>
               </div>
               <div className="space-y-2">
                 {veiculosHistorico.map((veiculo, index) => (
-                  <div key={veiculo.id || index} className="bg-white/10 rounded-lg p-2 border border-white/20">
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-white mb-1">
+                  <div key={veiculo.id || index} className={`${bgOverlayClass} rounded-lg p-2 border ${borderColorClass}`}>
+                    <div className={`flex flex-wrap items-center gap-2 text-xs ${textColorClass} mb-1`}>
                       <span className="font-semibold">{veiculo.marca}</span>
                       <span>{veiculo.modelo}</span>
                       <span>({veiculo.ano})</span>
-                      <span className="ml-auto px-2 py-0.5 bg-white/20 rounded font-mono text-[10px]">
+                      <span className={`ml-auto px-2 py-0.5 ${isDarkBackground ? 'bg-white/20' : 'bg-muted'} rounded font-mono text-[10px]`}>
                         {veiculo.placa?.toUpperCase()}
                       </span>
                     </div>
-                    <div className="flex items-center gap-1 text-[10px] text-white/80">
+                    <div className={`flex items-center gap-1 text-[10px] ${textMutedClass}`}>
                       <Calendar className="w-2.5 h-2.5" />
                       <span>Comprado em: {format(new Date(veiculo.data_compra || veiculo.created_at || ''), 'dd/MM/yyyy', { locale: ptBR })}</span>
                     </div>
@@ -181,19 +189,19 @@ export function VipCard({
         {/* QR Code Section */}
         <div className="relative z-10 flex items-end justify-between gap-4">
           <div className="flex-1 space-y-3">
-            <div className="flex items-center gap-2 text-white/90">
+            <div className={`flex items-center gap-2 ${textMutedClass}`}>
               <Calendar className="w-4 h-4" />
               <span className="text-xs">Membro desde</span>
             </div>
-            <p className="text-sm text-white font-medium">
+            <p className={`text-sm ${textColorClass} font-medium`}>
               {memberSince}
             </p>
             
-            <div className="flex items-center gap-2 text-white/90 mt-4">
+            <div className={`flex items-center gap-2 ${textMutedClass} mt-4`}>
               <Clock className="w-4 h-4" />
               <span className="text-xs">Válido até</span>
             </div>
-            <p className="text-lg text-vip-gold font-bold">
+            <p className={`text-lg font-bold ${isDarkBackground ? 'text-vip-gold' : 'text-primary'}`}>
               {validUntil}
             </p>
           </div>
@@ -210,19 +218,19 @@ export function VipCard({
         </div>
 
         {/* QR Codes */}
-        <div className="relative z-10 mt-6 pt-4 border-t border-white/20 space-y-2">
+        <div className={`relative z-10 mt-6 pt-4 border-t ${borderColorClass} space-y-2`}>
           {qrCodeDigital && (
-            <p className="text-xs text-white/90 font-mono tracking-widest">
+            <p className={`text-xs ${textMutedClass} font-mono tracking-widest`}>
               QR Code Digital: {qrCodeDigital}
             </p>
           )}
           {qrCodeFisico && (
-            <p className="text-xs text-white/90 font-mono tracking-widest">
+            <p className={`text-xs ${textMutedClass} font-mono tracking-widest`}>
               QR Code Físico: {qrCodeFisico}
             </p>
           )}
           {!qrCodeDigital && !qrCodeFisico && (
-            <p className="text-xs text-white/90 font-mono tracking-widest">
+            <p className={`text-xs ${textMutedClass} font-mono tracking-widest`}>
               QR Code: {clientId}
             </p>
           )}

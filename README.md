@@ -408,6 +408,13 @@ Consulte [`database/README.md`](database/README.md) para:
 
 ## 📚 Documentação Adicional
 
+### 🚀 Deploy e Instalação
+- [`INSTALL.md`](INSTALL.md) - ⚡ **Instalação rápida automatizada**
+- [`COOLIFY_DEPLOY.md`](COOLIFY_DEPLOY.md) - 🚀 Guia completo de instalação no Coolify com deploy automático via GitHub
+- [`COOLIFY_QUICK_START.md`](COOLIFY_QUICK_START.md) - ⚡ Guia rápido para deploy no Coolify
+- [`scripts/README_INSTALL.md`](scripts/README_INSTALL.md) - 📋 Documentação do script de instalação automatizada
+
+### 📖 Desenvolvimento
 - [`database/README.md`](database/README.md) - Documentação completa do banco de dados
 - [`server/README.md`](server/README.md) - Documentação da API backend
 - [`BACKEND_SETUP.md`](BACKEND_SETUP.md) - Guia de setup do backend
