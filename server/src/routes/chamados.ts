@@ -86,6 +86,7 @@ router.get(
 router.get('/qr/:qrCode', async (req, res) => {
   try {
     const { qrCode } = req.params;
+    console.log('Buscando chamados por QR Code:', qrCode);
 
     // Buscar cliente VIP por QR code
     const clienteResult = await pool.query(
@@ -94,10 +95,12 @@ router.get('/qr/:qrCode', async (req, res) => {
     );
 
     if (clienteResult.rows.length === 0) {
+      console.log('Cliente não encontrado com QR Code:', qrCode);
       return res.status(404).json({ error: 'Cliente VIP não encontrado' });
     }
 
     const cliente = clienteResult.rows[0];
+    console.log('Cliente encontrado:', cliente.id, 'Status:', cliente.status);
 
     // Verificar se o cartão está cancelado
     if (cliente.status === 'cancelado') {
@@ -109,6 +112,7 @@ router.get('/qr/:qrCode', async (req, res) => {
     const clienteId = cliente.id;
 
     // Buscar chamados do cliente
+    console.log('Buscando chamados para cliente:', clienteId);
     const result = await pool.query(
       `SELECT 
         c.*,
@@ -126,6 +130,8 @@ router.get('/qr/:qrCode', async (req, res) => {
       ORDER BY c.created_at DESC`,
       [clienteId]
     );
+    
+    console.log('Chamados encontrados:', result.rows.length);
 
     // Para chamados que têm observações mas não têm responsável, buscar o último usuário que atualizou no histórico
     const chamadosComResponsavel = await Promise.all(
@@ -158,10 +164,21 @@ router.get('/qr/:qrCode', async (req, res) => {
       })
     );
 
+    console.log('Retornando chamados com responsável');
     res.json(chamadosComResponsavel);
   } catch (error: any) {
     console.error('Erro ao buscar chamados por QR Code:', error);
-    res.status(500).json({ error: 'Erro interno do servidor' });
+    console.error('Detalhes do erro:', {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      hint: error.hint,
+      stack: error.stack,
+    });
+    res.status(500).json({ 
+      error: 'Erro interno do servidor',
+      message: process.env.NODE_ENV === 'development' ? error.message : undefined,
+    });
   }
 });
 
