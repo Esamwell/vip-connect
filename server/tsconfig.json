@@ -19,8 +19,7 @@
     "noUnusedParameters": false,
     "noImplicitReturns": false,
     "noFallthroughCasesInSwitch": false,
-    "noUncheckedIndexedAccess": false,
-    "suppressImplicitAnyIndexErrors": true
+    "noUncheckedIndexedAccess": false
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
