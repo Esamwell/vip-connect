@@ -1209,9 +1209,11 @@ router.get('/:id', authenticate, async (req, res) => {
       }
     }
 
+    console.log('Cliente VIP encontrado com sucesso:', cliente.id);
     res.json(cliente);
   } catch (error: any) {
     console.error('Erro ao buscar cliente VIP:', error);
+    console.error('ID buscado:', id);
     console.error('Mensagem do erro:', error.message);
     console.error('Stack trace completo:', error.stack);
     console.error('Detalhes do erro:', {
@@ -1222,11 +1224,8 @@ router.get('/:id', authenticate, async (req, res) => {
     });
     res.status(500).json({ 
       error: 'Erro interno do servidor',
-      message: error.message || 'Erro desconhecido',
-      ...(process.env.NODE_ENV === 'development' && {
-        details: error.detail,
-        hint: error.hint
-      })
+      message: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      details: process.env.NODE_ENV === 'development' ? error.detail : undefined,
     });
   }
 });
@@ -1277,11 +1276,47 @@ router.post(
       const qrCodeFisico = generateQRCodeFisico();
 
       // Calcular data de validade (12 meses)
-      const dataVenda = new Date(data_venda);
+      // Converter data_venda para Date (pode vir como string "DD/MM/YYYY" ou ISO)
+      let dataVenda: Date;
+      if (typeof data_venda === 'string' && data_venda.includes('/')) {
+        // Formato brasileiro DD/MM/YYYY
+        const [dia, mes, ano] = data_venda.split('/');
+        dataVenda = new Date(`${ano}-${mes}-${dia}`);
+      } else {
+        dataVenda = new Date(data_venda);
+      }
+      
+      // Validar se a data é válida
+      if (isNaN(dataVenda.getTime())) {
+        return res.status(400).json({
+          error: 'Data da venda inválida',
+        });
+      }
+
       const dataValidade = new Date(dataVenda);
       dataValidade.setMonth(dataValidade.getMonth() + 12);
+      
+      // Formatar para YYYY-MM-DD para PostgreSQL
+      const dataVendaFormatada = dataVenda.toISOString().split('T')[0];
+      const dataValidadeFormatada = dataValidade.toISOString().split('T')[0];
 
       // Criar cliente VIP
+      console.log('Criando cliente VIP com dados:', {
+        nome,
+        whatsapp,
+        email,
+        loja_id,
+        data_venda_original: data_venda,
+        data_venda_formatada: dataVendaFormatada,
+        data_validade_formatada: dataValidadeFormatada,
+        qrCodeDigital,
+        qrCodeFisico,
+        veiculo_marca,
+        veiculo_modelo,
+        veiculo_ano,
+        veiculo_placa,
+      });
+
       const clienteResult = await pool.query(
         `INSERT INTO clientes_vip (
           nome, whatsapp, email, loja_id, status, data_venda, 
@@ -1292,16 +1327,16 @@ router.post(
         [
           nome,
           whatsapp,
-          email,
+          email || null,
           loja_id,
-          data_venda,
-          dataValidade,
+          dataVendaFormatada,
+          dataValidadeFormatada,
           qrCodeDigital,
           qrCodeFisico,
-          veiculo_marca,
-          veiculo_modelo,
-          veiculo_ano,
-          veiculo_placa,
+          veiculo_marca || null,
+          veiculo_modelo || null,
+          veiculo_ano || null,
+          veiculo_placa || null,
         ]
       );
 
@@ -1319,25 +1354,43 @@ router.post(
             veiculo_modelo,
             veiculo_ano,
             veiculo_placa.toUpperCase().replace(/[^A-Z0-9]/g, ''),
-            data_venda,
+            dataVendaFormatada,
           ]
         );
       }
 
-      // Disparar evento para MT Leads
-      await enviarEventoMTLeads(EventosMTLeads.VIP_ATIVADO, {
-        cliente_id: cliente.id,
-        nome: cliente.nome,
-        whatsapp: cliente.whatsapp,
-        loja_id: cliente.loja_id,
-        data_validade: cliente.data_validade,
-        qr_code_digital: cliente.qr_code_digital,
-      });
+      // Disparar evento para MT Leads (não crítico - não deve quebrar o fluxo)
+      try {
+        await enviarEventoMTLeads(EventosMTLeads.VIP_ATIVADO, {
+          cliente_id: cliente.id,
+          nome: cliente.nome,
+          whatsapp: cliente.whatsapp,
+          loja_id: cliente.loja_id,
+          data_validade: cliente.data_validade,
+          qr_code_digital: cliente.qr_code_digital,
+        });
+      } catch (mtLeadsError: any) {
+        console.warn('Erro ao enviar evento para MT Leads (não crítico):', mtLeadsError.message);
+        // Continua mesmo se falhar
+      }
 
+      console.log('Cliente VIP criado com sucesso:', cliente.id);
       res.status(201).json(cliente);
     } catch (error: any) {
       console.error('Erro ao criar cliente VIP:', error);
-      res.status(500).json({ error: 'Erro interno do servidor' });
+      console.error('Detalhes do erro:', {
+        message: error.message,
+        code: error.code,
+        detail: error.detail,
+        hint: error.hint,
+        position: error.position,
+        stack: error.stack,
+      });
+      res.status(500).json({ 
+        error: 'Erro interno do servidor',
+        message: process.env.NODE_ENV === 'development' ? error.message : undefined,
+        details: process.env.NODE_ENV === 'development' ? error.detail : undefined,
+      });
     }
   }
 );
