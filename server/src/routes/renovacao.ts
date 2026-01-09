@@ -2,6 +2,7 @@ import express from 'express';
 import pool from '../config/database';
 import { authenticate, authorize, authorizeLojista } from '../middleware/auth';
 import { enviarEventoMTLeads, EventosMTLeads } from '../services/mtleads';
+import { generateQRCode, generateQRCodeFisico } from '../utils/qrcode';
 
 const router = express.Router();
 
@@ -16,7 +17,7 @@ router.post(
   async (req, res) => {
     try {
       const { cliente_vip_id } = req.params;
-      const { motivo, observacoes } = req.body;
+      const { motivo, observacoes, veiculo_marca, veiculo_modelo, veiculo_ano, veiculo_placa } = req.body;
 
       // Buscar cliente VIP
       const clienteResult = await pool.query(
@@ -49,15 +50,46 @@ router.post(
       const novaDataValidade = new Date();
       novaDataValidade.setMonth(novaDataValidade.getMonth() + 12);
 
+      // Gerar novos códigos para a renovação
+      let novoQRCodeDigital = generateQRCode();
+      let novoQRCodeFisico = generateQRCodeFisico();
+
+      // Garantir que os novos códigos sejam únicos
+      let qrDigitalExiste = true;
+      let qrFisicoExiste = true;
+      let tentativas = 0;
+      const maxTentativas = 10;
+
+      while ((qrDigitalExiste || qrFisicoExiste) && tentativas < maxTentativas) {
+        const checkQR = await pool.query(
+          'SELECT id FROM clientes_vip WHERE qr_code_digital = $1 OR qr_code_fisico = $2 OR qr_code_digital = $2 OR qr_code_fisico = $1',
+          [novoQRCodeDigital, novoQRCodeFisico]
+        );
+
+        if (checkQR.rows.length === 0) {
+          qrDigitalExiste = false;
+          qrFisicoExiste = false;
+        } else {
+          novoQRCodeDigital = generateQRCode();
+          novoQRCodeFisico = generateQRCodeFisico();
+          tentativas++;
+        }
+      }
+
+      if (tentativas >= maxTentativas) {
+        throw new Error('Não foi possível gerar códigos únicos após várias tentativas');
+      }
+
       // Iniciar transação
       await pool.query('BEGIN');
 
       try {
-        // Criar registro de renovação
-        await pool.query(
+        // Criar registro de renovação e obter o ID
+        const renovacaoResult = await pool.query(
           `INSERT INTO renovacoes (
             cliente_vip_id, loja_id, nova_data_validade, motivo, observacoes
-          ) VALUES ($1, $2, $3, $4, $5)`,
+          ) VALUES ($1, $2, $3, $4, $5)
+          RETURNING id`,
           [
             cliente_vip_id,
             cliente.loja_id,
@@ -67,19 +99,57 @@ router.post(
           ]
         );
 
-        // Atualizar cliente VIP
+        const renovacaoId = renovacaoResult.rows[0].id;
+
+        // Se houver novo veículo, adicionar ao histórico (não substituir)
+        if (veiculo_marca && veiculo_modelo && veiculo_ano && veiculo_placa) {
+          await pool.query(
+            `INSERT INTO veiculos_cliente_vip (
+              cliente_vip_id, marca, modelo, ano, placa, data_compra, renovacao_id
+            ) VALUES ($1, $2, $3, $4, $5, CURRENT_DATE, $6)`,
+            [
+              cliente_vip_id,
+              veiculo_marca,
+              veiculo_modelo,
+              parseInt(veiculo_ano),
+              veiculo_placa.toUpperCase().replace(/[^A-Z0-9]/g, ''),
+              renovacaoId,
+            ]
+          );
+
+          // Atualizar campos do veículo na tabela clientes_vip apenas para mostrar o mais recente
+          // (para compatibilidade com código existente)
+          await pool.query(
+            `UPDATE clientes_vip
+             SET veiculo_marca = $1,
+                 veiculo_modelo = $2,
+                 veiculo_ano = $3,
+                 veiculo_placa = $4
+             WHERE id = $5`,
+            [
+              veiculo_marca,
+              veiculo_modelo,
+              parseInt(veiculo_ano),
+              veiculo_placa.toUpperCase().replace(/[^A-Z0-9]/g, ''),
+              cliente_vip_id,
+            ]
+          );
+        }
+
+        // Atualizar cliente VIP (status, validade e novos códigos)
         const updateResult = await pool.query(
           `UPDATE clientes_vip
-           SET 
-             status = 'renovado',
-             data_validade = $1,
-             data_renovacao = NOW(),
-             potencial_recompra = false,
-             notificado_vencimento = false,
-             updated_at = NOW()
-           WHERE id = $2
+           SET status = 'renovado',
+               data_validade = $1,
+               data_renovacao = NOW(),
+               qr_code_digital = $2,
+               qr_code_fisico = $3,
+               potencial_recompra = false,
+               notificado_vencimento = false,
+               updated_at = NOW()
+           WHERE id = $4
            RETURNING *`,
-          [novaDataValidade, cliente_vip_id]
+          [novaDataValidade, novoQRCodeDigital, novoQRCodeFisico, cliente_vip_id]
         );
 
         await pool.query('COMMIT');
@@ -92,12 +162,14 @@ router.post(
           nome: clienteAtualizado.nome,
           whatsapp: clienteAtualizado.whatsapp,
           nova_data_validade: clienteAtualizado.data_validade,
+          qr_code_digital: clienteAtualizado.qr_code_digital,
+          qr_code_fisico: clienteAtualizado.qr_code_fisico,
           motivo: motivo || 'Recompra',
         });
 
         res.json({
           cliente: clienteAtualizado,
-          mensagem: 'VIP renovado com sucesso!',
+          mensagem: 'VIP renovado com sucesso! Novos códigos foram gerados.',
         });
       } catch (error) {
         await pool.query('ROLLBACK');

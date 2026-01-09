@@ -57,16 +57,20 @@ export function StoreRankingCard({
           </h4>
           <div className="flex items-center gap-2 mt-1">
             <div className="flex items-center gap-1">
-              {[1, 2, 3, 4, 5].map((star) => (
-                <Star
-                  key={star}
-                  className={`w-4 h-4 ${
-                    star <= Math.round(rating)
-                      ? 'text-vip-gold fill-vip-gold'
-                      : 'text-muted-foreground/30'
-                  }`}
-                />
-              ))}
+              {[1, 2, 3, 4, 5].map((star) => {
+                // Converter nota de 0-10 para 0-5 para as estrelas
+                const ratingInStars = (rating / 2);
+                return (
+                  <Star
+                    key={star}
+                    className={`w-4 h-4 ${
+                      star <= Math.round(ratingInStars)
+                        ? 'text-vip-gold fill-vip-gold'
+                        : 'text-muted-foreground/30'
+                    }`}
+                  />
+                );
+              })}
             </div>
             <span className="text-sm font-semibold text-foreground">
               {rating.toFixed(1)}

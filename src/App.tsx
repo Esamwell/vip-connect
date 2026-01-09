@@ -14,6 +14,7 @@ import NotFound from "./pages/NotFound";
 import Dashboard from "./pages/dashboard/Dashboard";
 import Clientes from "./pages/dashboard/Clientes";
 import Chamados from "./pages/dashboard/Chamados";
+import ChamadoDetail from "./pages/dashboard/ChamadoDetail";
 import Relatorios from "./pages/dashboard/Relatorios";
 import Ranking from "./pages/dashboard/Ranking";
 import Renovacoes from "./pages/dashboard/Renovacoes";
@@ -110,6 +111,16 @@ const App = () => (
                 <ProtectedRoute allowedRoles={['admin_mt', 'admin_shopping', 'lojista']}>
                   <DashboardLayout>
                     <Chamados />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/chamados/:id"
+              element={
+                <ProtectedRoute allowedRoles={['admin_mt', 'admin_shopping', 'lojista']}>
+                  <DashboardLayout>
+                    <ChamadoDetail />
                   </DashboardLayout>
                 </ProtectedRoute>
               }

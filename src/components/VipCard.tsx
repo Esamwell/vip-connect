@@ -2,18 +2,31 @@ import { QRCodeSVG } from 'qrcode.react';
 import { motion } from 'framer-motion';
 import { Crown, Calendar, CheckCircle2, AlertCircle, Clock, Car } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale/pt-BR';
+
+interface VeiculoHistorico {
+  id: string;
+  marca: string;
+  modelo: string;
+  ano: number;
+  placa: string;
+  data_compra: string;
+  created_at?: string;
+}
 
 interface VipCardProps {
   clientName: string;
   clientId: string;
   storeName: string;
   validUntil: string;
-  status: 'active' | 'expiring' | 'expired' | 'renewed';
+  status: 'active' | 'expiring' | 'expired' | 'renewed' | 'cancelled';
   memberSince: string;
   veiculoMarca?: string;
   veiculoModelo?: string;
   veiculoAno?: number;
   veiculoPlaca?: string;
+  veiculosHistorico?: VeiculoHistorico[];
   qrCodeDigital?: string;
   qrCodeFisico?: string;
 }
@@ -39,6 +52,11 @@ const statusConfig = {
     variant: 'vip' as const,
     icon: Crown,
   },
+  cancelled: {
+    label: 'Cancelado',
+    variant: 'destructive' as const,
+    icon: AlertCircle,
+  },
 };
 
 export function VipCard({ 
@@ -52,6 +70,7 @@ export function VipCard({
   veiculoModelo,
   veiculoAno,
   veiculoPlaca,
+  veiculosHistorico,
   qrCodeDigital,
   qrCodeFisico
 }: VipCardProps) {
@@ -103,22 +122,30 @@ export function VipCard({
           <p className="text-sm text-white/90 mt-1">
             Loja: {storeName}
           </p>
-          {/* Veículo Info */}
-          {(veiculoMarca || veiculoModelo || veiculoAno || veiculoPlaca) && (
+          {/* Histórico de Veículos */}
+          {veiculosHistorico && veiculosHistorico.length > 0 && (
             <div className="mt-3 pt-3 border-t border-white/20">
               <div className="flex items-center gap-2 text-white/90 mb-2">
                 <Car className="w-4 h-4" />
-                <span className="text-xs font-medium">Veículo</span>
+                <span className="text-xs font-medium">Veículos Comprados</span>
               </div>
-              <div className="flex flex-wrap gap-2 text-xs text-white">
-                {veiculoMarca && <span className="font-semibold">{veiculoMarca}</span>}
-                {veiculoModelo && <span>{veiculoModelo}</span>}
-                {veiculoAno && <span>({veiculoAno})</span>}
-                {veiculoPlaca && (
-                  <span className="ml-2 px-2 py-0.5 bg-white/20 rounded font-mono">
-                    {veiculoPlaca.toUpperCase()}
-                  </span>
-                )}
+              <div className="space-y-2">
+                {veiculosHistorico.map((veiculo, index) => (
+                  <div key={veiculo.id || index} className="bg-white/10 rounded-lg p-2 border border-white/20">
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-white mb-1">
+                      <span className="font-semibold">{veiculo.marca}</span>
+                      <span>{veiculo.modelo}</span>
+                      <span>({veiculo.ano})</span>
+                      <span className="ml-auto px-2 py-0.5 bg-white/20 rounded font-mono text-[10px]">
+                        {veiculo.placa?.toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1 text-[10px] text-white/80">
+                      <Calendar className="w-2.5 h-2.5" />
+                      <span>Comprado em: {format(new Date(veiculo.data_compra || veiculo.created_at || ''), 'dd/MM/yyyy', { locale: ptBR })}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}

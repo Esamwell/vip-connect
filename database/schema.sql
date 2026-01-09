@@ -288,17 +288,19 @@ CREATE INDEX idx_avaliacoes_nota ON avaliacoes(nota);
 CREATE INDEX idx_avaliacoes_created_at ON avaliacoes(created_at);
 
 -- View para ranking de lojas (calcula nota média e quantidade)
+-- Apenas inclui lojas que têm pelo menos uma avaliação
 CREATE OR REPLACE VIEW ranking_lojas AS
 SELECT 
     l.id,
     l.nome,
-    COUNT(a.id) as quantidade_avaliacoes,
-    COALESCE(ROUND(AVG(a.nota)::numeric, 2), 0) as nota_media,
-    ROW_NUMBER() OVER (ORDER BY COALESCE(AVG(a.nota), 0) DESC, COUNT(a.id) DESC) as posicao_ranking
+    COUNT(a.id)::integer as quantidade_avaliacoes,
+    ROUND(AVG(a.nota)::numeric, 2) as nota_media,
+    ROW_NUMBER() OVER (ORDER BY AVG(a.nota) DESC, COUNT(a.id) DESC) as posicao_ranking
 FROM lojas l
-LEFT JOIN avaliacoes a ON l.id = a.loja_id
+INNER JOIN avaliacoes a ON l.id = a.loja_id
 WHERE l.ativo = true
 GROUP BY l.id, l.nome
+HAVING COUNT(a.id) > 0
 ORDER BY nota_media DESC, quantidade_avaliacoes DESC;
 
 -- =====================================================

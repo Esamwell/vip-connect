@@ -10,10 +10,37 @@ const router = express.Router();
  */
 router.get('/lojas', async (req, res) => {
   try {
+    // Buscar ranking ordenado corretamente
     const result = await pool.query(
-      `SELECT * FROM ranking_lojas ORDER BY posicao_ranking`
+      `SELECT 
+        id,
+        nome,
+        quantidade_avaliacoes,
+        nota_media,
+        posicao_ranking
+      FROM ranking_lojas 
+      WHERE quantidade_avaliacoes > 0
+      ORDER BY nota_media DESC, quantidade_avaliacoes DESC, nome ASC`
     );
-    res.json(result.rows);
+    
+    // Recalcular posições para garantir sequência correta
+    // (em caso de empates, manter a ordem já calculada)
+    const rankingComPosicao = result.rows.map((loja, index) => ({
+      ...loja,
+      posicao_ranking: index + 1, // Recalcular posição baseado na ordem já ordenada
+    }));
+    
+    console.log('[Ranking] Total de lojas com avaliações:', rankingComPosicao.length);
+    if (rankingComPosicao.length > 0) {
+      console.log('[Ranking] Top 3:', rankingComPosicao.slice(0, 3).map(l => ({
+        posicao: l.posicao_ranking,
+        nome: l.nome,
+        nota: l.nota_media,
+        avaliacoes: l.quantidade_avaliacoes
+      })));
+    }
+    
+    res.json(rankingComPosicao);
   } catch (error: any) {
     console.error('Erro ao buscar ranking:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });
@@ -27,7 +54,7 @@ router.get('/lojas', async (req, res) => {
 router.get(
   '/lojas/:loja_id/avaliacoes',
   authenticate,
-  authorizeLojista,
+  authorize('admin_mt', 'admin_shopping', 'lojista'),
   async (req, res) => {
     try {
       const { loja_id } = req.params;
@@ -44,6 +71,8 @@ router.get(
           });
         }
       }
+      
+      // Admins podem ver todas as avaliações sem restrição
 
       const result = await pool.query(
         `SELECT 

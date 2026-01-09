@@ -117,6 +117,24 @@ router.get('/qr/:qrCode', async (req, res) => {
     const cliente = result.rows[0];
     console.log('Cliente encontrado (público):', cliente.nome);
 
+    // Buscar histórico de veículos do cliente
+    const veiculosResult = await pool.query(
+      `SELECT 
+        id,
+        marca,
+        modelo,
+        ano,
+        placa,
+        data_compra,
+        created_at
+      FROM veiculos_cliente_vip
+      WHERE cliente_vip_id = $1
+      ORDER BY data_compra ASC, created_at ASC`,
+      [clienteId]
+    );
+
+    cliente.veiculos_historico = veiculosResult.rows;
+
     res.json(cliente);
   } catch (error: any) {
     console.error('Erro ao buscar cliente VIP por QR Code:', error);
@@ -1158,6 +1176,24 @@ router.get('/:id', authenticate, async (req, res) => {
     const cliente = result.rows[0];
     console.log('Cliente encontrado:', cliente.nome, 'Loja:', cliente.loja_nome);
 
+    // Buscar histórico de veículos do cliente
+    const veiculosResult = await pool.query(
+      `SELECT 
+        id,
+        marca,
+        modelo,
+        ano,
+        placa,
+        data_compra,
+        created_at
+      FROM veiculos_cliente_vip
+      WHERE cliente_vip_id = $1
+      ORDER BY data_compra ASC, created_at ASC`,
+      [clienteId]
+    );
+
+    cliente.veiculos_historico = veiculosResult.rows;
+
     // Verificar se lojista pode ver este cliente
     if (req.user!.role === 'lojista') {
       const lojaResult = await pool.query(
@@ -1246,7 +1282,7 @@ router.post(
       dataValidade.setMonth(dataValidade.getMonth() + 12);
 
       // Criar cliente VIP
-      const result = await pool.query(
+      const clienteResult = await pool.query(
         `INSERT INTO clientes_vip (
           nome, whatsapp, email, loja_id, status, data_venda, 
           data_ativacao, data_validade, qr_code_digital, qr_code_fisico,
@@ -1269,7 +1305,24 @@ router.post(
         ]
       );
 
-      const cliente = result.rows[0];
+      const cliente = clienteResult.rows[0];
+
+      // Se houver veículo, criar registro no histórico
+      if (veiculo_marca && veiculo_modelo && veiculo_ano && veiculo_placa) {
+        await pool.query(
+          `INSERT INTO veiculos_cliente_vip (
+            cliente_vip_id, marca, modelo, ano, placa, data_compra
+          ) VALUES ($1, $2, $3, $4, $5, $6)`,
+          [
+            cliente.id,
+            veiculo_marca,
+            veiculo_modelo,
+            veiculo_ano,
+            veiculo_placa.toUpperCase().replace(/[^A-Z0-9]/g, ''),
+            data_venda,
+          ]
+        );
+      }
 
       // Disparar evento para MT Leads
       await enviarEventoMTLeads(EventosMTLeads.VIP_ATIVADO, {
@@ -1364,6 +1417,75 @@ router.post(
       }
     } catch (error: any) {
       console.error('Erro ao ativar VIP após venda:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  }
+);
+
+/**
+ * PATCH /api/clientes-vip/:id/cancelar
+ * Cancela o cartão VIP de um cliente
+ */
+router.patch(
+  '/:id/cancelar',
+  authenticate,
+  authorize('admin_mt', 'admin_shopping', 'lojista'),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      // Buscar cliente VIP
+      const clienteResult = await pool.query(
+        'SELECT id, loja_id, status FROM clientes_vip WHERE id = $1',
+        [id]
+      );
+
+      if (clienteResult.rows.length === 0) {
+        return res.status(404).json({
+          error: 'Cliente VIP não encontrado',
+        });
+      }
+
+      const cliente = clienteResult.rows[0];
+
+      // Verificar permissões (lojista só pode cancelar clientes da própria loja)
+      if (req.user!.role === 'lojista') {
+        const lojaResult = await pool.query(
+          'SELECT id FROM lojas WHERE id = $1 AND user_id = $2',
+          [cliente.loja_id, req.user!.userId]
+        );
+        if (lojaResult.rows.length === 0) {
+          return res.status(403).json({
+            error: 'Você só pode cancelar clientes da sua própria loja',
+          });
+        }
+      }
+
+      // Verificar se já está cancelado
+      if (cliente.status === 'cancelado') {
+        return res.status(400).json({
+          error: 'Este cliente já está cancelado',
+        });
+      }
+
+      // Atualizar status para cancelado
+      const updateResult = await pool.query(
+        `UPDATE clientes_vip
+         SET status = 'cancelado',
+             updated_at = NOW()
+         WHERE id = $1
+         RETURNING *`,
+        [id]
+      );
+
+      const clienteAtualizado = updateResult.rows[0];
+
+      res.json({
+        cliente: clienteAtualizado,
+        mensagem: 'Cartão VIP cancelado com sucesso! O cliente ainda pode acessar seus dados.',
+      });
+    } catch (error: any) {
+      console.error('Erro ao cancelar cartão VIP:', error);
       res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }

@@ -11,11 +11,13 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { api } from '@/services/api';
 import { ClienteVip } from '@/services/clientes.service';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale/pt-BR';
-import { Crown, Calendar, Clock, Gift, CheckCircle2, Car, Plus, Loader2, XCircle, CheckCircle } from 'lucide-react';
+import { Crown, Calendar, Clock, Gift, CheckCircle2, Car, Plus, Loader2, XCircle, CheckCircle, RefreshCw, Ban } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -71,6 +73,16 @@ export function ClienteVIPModal({ open, onOpenChange, clienteId }: ClienteVIPMod
   const [todosBeneficios, setTodosBeneficios] = useState<BeneficioParaAlocar[]>([]);
   const [beneficiosSelecionados, setBeneficiosSelecionados] = useState<Set<string>>(new Set());
   const [alocando, setAlocando] = useState(false);
+  const [showRenovarModal, setShowRenovarModal] = useState(false);
+  const [renovando, setRenovando] = useState(false);
+  const [novoVeiculo, setNovoVeiculo] = useState({
+    marca: '',
+    modelo: '',
+    ano: '',
+    placa: ''
+  });
+  const [showCancelarModal, setShowCancelarModal] = useState(false);
+  const [cancelando, setCancelando] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -256,6 +268,8 @@ export function ClienteVIPModal({ open, onOpenChange, clienteId }: ClienteVIPMod
         return 'bg-red-500';
       case 'renovado':
         return 'bg-blue-500';
+      case 'cancelado':
+        return 'bg-red-600';
       default:
         return 'bg-gray-500';
     }
@@ -279,14 +293,91 @@ export function ClienteVIPModal({ open, onOpenChange, clienteId }: ClienteVIPMod
     );
   }
 
+  const handleRenovarCliente = async () => {
+    if (!cliente || !clienteId) return;
+
+    // Validação básica dos campos do veículo
+    if (!novoVeiculo.marca || !novoVeiculo.modelo || !novoVeiculo.ano || !novoVeiculo.placa) {
+      toast({
+        title: 'Atenção',
+        description: 'Por favor, preencha todos os dados do novo veículo.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      setRenovando(true);
+      const response = await api.post(`/renovacao/${clienteId}`, {
+        veiculo_marca: novoVeiculo.marca,
+        veiculo_modelo: novoVeiculo.modelo,
+        veiculo_ano: parseInt(novoVeiculo.ano),
+        veiculo_placa: novoVeiculo.placa.toUpperCase().replace(/[^A-Z0-9]/g, ''),
+        motivo: 'Recompra',
+      });
+
+      toast({
+        title: 'Sucesso',
+        description: response.mensagem || 'Cliente renovado com sucesso!',
+      });
+
+      // Resetar formulário
+      setNovoVeiculo({ marca: '', modelo: '', ano: '', placa: '' });
+      setShowRenovarModal(false);
+
+      // Recarregar dados do cliente
+      await loadClienteData();
+    } catch (error: any) {
+      console.error('Erro ao renovar cliente:', error);
+      toast({
+        title: 'Erro',
+        description: error.response?.data?.error || 'Erro ao renovar cliente VIP',
+        variant: 'destructive',
+      });
+    } finally {
+      setRenovando(false);
+    }
+  };
+
+  const handleCancelarCliente = async () => {
+    if (!cliente || !clienteId) return;
+
+    try {
+      setCancelando(true);
+      const response = await api.patch(`/clientes-vip/${clienteId}/cancelar`, {});
+
+      toast({
+        title: 'Sucesso',
+        description: response.mensagem || 'Cartão VIP cancelado com sucesso!',
+      });
+
+      setShowCancelarModal(false);
+
+      // Recarregar dados do cliente
+      await loadClienteData();
+    } catch (error: any) {
+      console.error('Erro ao cancelar cliente:', error);
+      toast({
+        title: 'Erro',
+        description: error.response?.data?.error || 'Erro ao cancelar cartão VIP',
+        variant: 'destructive',
+      });
+    } finally {
+      setCancelando(false);
+    }
+  };
+
   const formatarData = (data: string) => {
     return format(new Date(data), 'dd/MM/yyyy', { locale: ptBR });
   };
 
-  const gerarIdVisual = (id: string) => {
+  const gerarIdVisual = (id: string, dataRenovacao?: string) => {
     // Pegar últimos caracteres do UUID para criar um ID visual
     const partes = id.split('-');
-    const ano = new Date().getFullYear();
+    // Se houver data de renovação, usar o ano da renovação, senão usar ano atual
+    const ano = dataRenovacao 
+      ? new Date(dataRenovacao).getFullYear() 
+      : new Date().getFullYear();
     const numero = partes[0].substring(0, 5).toUpperCase();
     return `VIP-${ano}-${numero}`;
   };
@@ -326,7 +417,11 @@ export function ClienteVIPModal({ open, onOpenChange, clienteId }: ClienteVIPMod
                   <Badge
                     className={`${getStatusColor(cliente.status)} text-white px-3 py-1 flex items-center gap-1`}
                   >
-                    <CheckCircle2 className="w-3 h-3" />
+                    {cliente.status === 'cancelado' ? (
+                      <Ban className="w-3 h-3" />
+                    ) : (
+                      <CheckCircle2 className="w-3 h-3" />
+                    )}
                     {cliente.status.charAt(0).toUpperCase() + cliente.status.slice(1)}
                   </Badge>
                 </div>
@@ -334,22 +429,30 @@ export function ClienteVIPModal({ open, onOpenChange, clienteId }: ClienteVIPMod
                 <div className="mb-6">
                   <h3 className="text-3xl font-bold mb-2">{cliente.nome}</h3>
                   <p className="text-red-100 mb-3">Loja: {cliente.loja_nome || 'N/A'}</p>
-                  {/* Informações do Veículo */}
-                  {(cliente.veiculo_marca || cliente.veiculo_modelo || cliente.veiculo_ano || cliente.veiculo_placa) && (
+                  {/* Histórico de Veículos */}
+                  {cliente.veiculos_historico && cliente.veiculos_historico.length > 0 && (
                     <div className="mt-3 pt-3 border-t border-red-400/30">
-                      <div className="flex items-center gap-2 text-red-100 mb-2">
+                      <div className="flex items-center gap-2 text-red-100 mb-3">
                         <Car className="w-4 h-4" />
-                        <span className="text-sm font-medium">Veículo Comprado</span>
+                        <span className="text-sm font-medium">Veículos Comprados</span>
                       </div>
-                      <div className="flex flex-wrap gap-2 text-sm text-white">
-                        {cliente.veiculo_marca && <span className="font-semibold">{cliente.veiculo_marca}</span>}
-                        {cliente.veiculo_modelo && <span>{cliente.veiculo_modelo}</span>}
-                        {cliente.veiculo_ano && <span>({cliente.veiculo_ano})</span>}
-                        {cliente.veiculo_placa && (
-                          <span className="ml-2 px-2 py-1 bg-red-800/50 rounded font-mono text-xs">
-                            {cliente.veiculo_placa.toUpperCase()}
-                          </span>
-                        )}
+                      <div className="space-y-3">
+                        {cliente.veiculos_historico.map((veiculo, index) => (
+                          <div key={veiculo.id || index} className="bg-red-800/30 rounded-lg p-3 border border-red-400/20">
+                            <div className="flex flex-wrap items-center gap-2 text-sm text-white mb-1">
+                              <span className="font-semibold">{veiculo.marca}</span>
+                              <span>{veiculo.modelo}</span>
+                              <span>({veiculo.ano})</span>
+                              <span className="ml-auto px-2 py-0.5 bg-red-800/50 rounded font-mono text-xs">
+                                {veiculo.placa?.toUpperCase()}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1 text-xs text-red-200 mt-1">
+                              <Calendar className="w-3 h-3" />
+                              <span>Comprado em: {format(new Date(veiculo.data_compra || veiculo.created_at || ''), 'dd/MM/yyyy', { locale: ptBR })}</span>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   )}
@@ -380,7 +483,7 @@ export function ClienteVIPModal({ open, onOpenChange, clienteId }: ClienteVIPMod
                       <div>
                         <p className="text-xs text-red-200 mb-1">ID Visual</p>
                         <p className="text-sm font-mono text-white bg-red-800/50 px-2 py-1 rounded">
-                          {gerarIdVisual(cliente.id)}
+                          {gerarIdVisual(cliente.id, cliente.data_renovacao)}
                         </p>
                       </div>
                       
@@ -409,6 +512,44 @@ export function ClienteVIPModal({ open, onOpenChange, clienteId }: ClienteVIPMod
                     </div>
                   </div>
                 </div>
+
+                {/* Botões de Ação */}
+                {user?.role !== 'parceiro' && (
+                  <div className="mt-4 pt-4 border-t border-red-400/30 space-y-3">
+                    {cliente.status !== 'cancelado' && (
+                      <Button
+                        onClick={() => {
+                          setNovoVeiculo({ marca: '', modelo: '', ano: '', placa: '' });
+                          setShowRenovarModal(true);
+                        }}
+                        className="w-full bg-green-600 hover:bg-green-700 text-white"
+                        size="lg"
+                      >
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        Renovar Cliente (Novo Veículo)
+                      </Button>
+                    )}
+                    {cliente.status !== 'cancelado' && (
+                      <Button
+                        onClick={() => setShowCancelarModal(true)}
+                        className="w-full bg-red-600 hover:bg-red-700 text-white"
+                        size="lg"
+                        variant="destructive"
+                      >
+                        <Ban className="w-4 h-4 mr-2" />
+                        Cancelar Cartão VIP
+                      </Button>
+                    )}
+                    {cliente.status === 'cancelado' && (
+                      <div className="p-3 bg-red-900/30 border border-red-600/50 rounded-lg">
+                        <p className="text-sm text-white/90 text-center">
+                          <Ban className="w-4 h-4 inline mr-2" />
+                          Este cartão VIP está cancelado. O cliente ainda pode acessar seus dados.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -685,6 +826,178 @@ export function ClienteVIPModal({ open, onOpenChange, clienteId }: ClienteVIPMod
                 <>
                   <Plus className="w-4 h-4 mr-2" />
                   Alocar {beneficiosSelecionados.size > 0 && `(${beneficiosSelecionados.size})`}
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Renovação */}
+      <Dialog open={showRenovarModal} onOpenChange={setShowRenovarModal}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <RefreshCw className="w-5 h-5" />
+              Renovar Cliente VIP
+            </DialogTitle>
+            <DialogDescription>
+              Renovar cliente <strong>{cliente?.nome}</strong> com novo veículo comprado. A validade será estendida por mais 12 meses.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="bg-muted/50 p-4 rounded-lg">
+              <p className="text-sm font-medium mb-2">Veículo Atual:</p>
+              <div className="text-sm text-muted-foreground">
+                {cliente?.veiculo_marca || 'N/A'} {cliente?.veiculo_modelo || ''} 
+                {cliente?.veiculo_ano && ` (${cliente.veiculo_ano})`}
+                {cliente?.veiculo_placa && ` - ${cliente.veiculo_placa.toUpperCase()}`}
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <h4 className="font-semibold">Dados do Novo Veículo</h4>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="nova_marca">Marca *</Label>
+                  <Input
+                    id="nova_marca"
+                    placeholder="Ex: Volkswagen"
+                    value={novoVeiculo.marca}
+                    onChange={(e) => setNovoVeiculo({ ...novoVeiculo, marca: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="novo_modelo">Modelo *</Label>
+                  <Input
+                    id="novo_modelo"
+                    placeholder="Ex: T-cross"
+                    value={novoVeiculo.modelo}
+                    onChange={(e) => setNovoVeiculo({ ...novoVeiculo, modelo: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="novo_ano">Ano *</Label>
+                  <Input
+                    id="novo_ano"
+                    type="number"
+                    placeholder="Ex: 2025"
+                    min="1900"
+                    max="2100"
+                    value={novoVeiculo.ano}
+                    onChange={(e) => setNovoVeiculo({ ...novoVeiculo, ano: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="nova_placa">Placa *</Label>
+                  <Input
+                    id="nova_placa"
+                    placeholder="Ex: ABC1234"
+                    maxLength={7}
+                    value={novoVeiculo.placa}
+                    onChange={(e) => setNovoVeiculo({ ...novoVeiculo, placa: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '') })}
+                  />
+                </div>
+              </div>
+
+              <div className="bg-blue-50 dark:bg-blue-950/30 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
+                <p className="text-sm text-blue-900 dark:text-blue-200">
+                  <strong>Informação:</strong> Ao renovar, o cliente será automaticamente adicionado ao card de "Clientes Renovados" 
+                  e a validade do VIP será estendida por mais 12 meses a partir da data de hoje.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowRenovarModal(false);
+                setNovoVeiculo({ marca: '', modelo: '', ano: '', placa: '' });
+              }}
+              disabled={renovando}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleRenovarCliente}
+              disabled={renovando || !novoVeiculo.marca || !novoVeiculo.modelo || !novoVeiculo.ano || !novoVeiculo.placa}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {renovando ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Renovando...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Renovar Cliente
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Cancelamento */}
+      <Dialog open={showCancelarModal} onOpenChange={setShowCancelarModal}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2 text-red-600">
+              <Ban className="w-5 h-5" />
+              Cancelar Cartão VIP
+            </DialogTitle>
+            <DialogDescription>
+              Você está prestes a cancelar o cartão VIP de <strong>{cliente?.nome}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="bg-yellow-50 dark:bg-yellow-950/30 p-4 rounded-lg border border-yellow-200 dark:border-yellow-800">
+              <p className="text-sm text-yellow-900 dark:text-yellow-200 font-medium mb-2">
+                ⚠️ Atenção
+              </p>
+              <ul className="text-sm text-yellow-800 dark:text-yellow-300 space-y-1 list-disc list-inside">
+                <li>O cartão VIP será marcado como <strong>cancelado</strong></li>
+                <li>O cliente ainda poderá acessar seus dados usando o QR Code</li>
+                <li>O histórico de benefícios e chamados será mantido</li>
+                <li>Esta ação não pode ser desfeita automaticamente</li>
+              </ul>
+            </div>
+
+            <div className="bg-muted/50 p-4 rounded-lg">
+              <p className="text-sm font-medium mb-1">Cliente:</p>
+              <p className="text-sm text-muted-foreground">{cliente?.nome}</p>
+              <p className="text-sm font-medium mb-1 mt-2">Status Atual:</p>
+              <p className="text-sm text-muted-foreground capitalize">{cliente?.status}</p>
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <Button
+              variant="outline"
+              onClick={() => setShowCancelarModal(false)}
+              disabled={cancelando}
+            >
+              Não, manter ativo
+            </Button>
+            <Button
+              onClick={handleCancelarCliente}
+              disabled={cancelando}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {cancelando ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Cancelando...
+                </>
+              ) : (
+                <>
+                  <Ban className="w-4 h-4 mr-2" />
+                  Sim, cancelar cartão
                 </>
               )}
             </Button>

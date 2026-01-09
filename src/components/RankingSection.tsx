@@ -1,16 +1,51 @@
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Trophy, Star } from 'lucide-react';
+import { Trophy, Star, Loader2 } from 'lucide-react';
 import { StoreRankingCard } from './StoreRankingCard';
+import { api } from '@/services/api';
 
-const rankingData = [
-  { position: 1, storeName: 'Premium Motors', rating: 9.8, totalReviews: 234, trend: 'up' as const },
-  { position: 2, storeName: 'Auto Elite', rating: 9.6, totalReviews: 189, trend: 'stable' as const },
-  { position: 3, storeName: 'Veículos Luxo', rating: 9.5, totalReviews: 156, trend: 'up' as const },
-  { position: 4, storeName: 'Car Express', rating: 9.3, totalReviews: 201, trend: 'down' as const },
-  { position: 5, storeName: 'Auto Shopping Prime', rating: 9.2, totalReviews: 178, trend: 'stable' as const },
-];
+interface LojaRanking {
+  id: string;
+  nome: string;
+  nota_media: number | null;
+  quantidade_avaliacoes: number;
+  posicao_ranking: number;
+}
 
 export function RankingSection() {
+  const [ranking, setRanking] = useState<LojaRanking[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    loadRanking();
+  }, []);
+
+  const loadRanking = async () => {
+    try {
+      setLoading(true);
+      setError(false);
+      const data = await api.get<LojaRanking[]>('/ranking/lojas');
+      
+      // Limitar a 5 primeiras lojas e formatar dados
+      const rankingFormatado = (data || [])
+        .slice(0, 5)
+        .map((loja) => ({
+          ...loja,
+          nota_media: loja.nota_media != null ? Number(loja.nota_media) : 0,
+          quantidade_avaliacoes: Number(loja.quantidade_avaliacoes) || 0,
+          posicao_ranking: Number(loja.posicao_ranking) || 0,
+        }));
+      
+      setRanking(rankingFormatado);
+    } catch (error) {
+      console.error('Erro ao carregar ranking:', error);
+      setError(true);
+      setRanking([]);
+    } finally {
+      setLoading(false);
+    }
+  };
   return (
     <section id="ranking" className="py-20 bg-muted/50">
       <div className="container mx-auto px-4">
@@ -34,19 +69,46 @@ export function RankingSection() {
         </motion.div>
 
         <div className="max-w-2xl mx-auto">
-          <div className="space-y-3">
-            {rankingData.map((store, index) => (
-              <motion.div
-                key={store.storeName}
-                initial={{ opacity: 0, x: -20 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.1 }}
-              >
-                <StoreRankingCard {...store} />
-              </motion.div>
-            ))}
-          </div>
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-vip-gold" />
+            </div>
+          ) : error || ranking.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground">
+                Nenhum ranking disponível no momento. Aguarde as primeiras avaliações dos clientes VIP.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {ranking.map((loja, index) => {
+                // Determinar trend baseado na posição (pode ser melhorado com histórico)
+                const getTrend = (position: number): 'up' | 'down' | 'stable' => {
+                  // Por enquanto, vamos usar 'stable' como padrão
+                  // Pode ser melhorado no futuro com dados históricos
+                  return 'stable';
+                };
+
+                return (
+                  <motion.div
+                    key={loja.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: index * 0.1 }}
+                  >
+                    <StoreRankingCard
+                      position={loja.posicao_ranking}
+                      storeName={loja.nome}
+                      rating={loja.nota_media || 0} // Nota de 0-10 (será exibida como está)
+                      totalReviews={loja.quantidade_avaliacoes}
+                      trend={getTrend(loja.posicao_ranking)}
+                    />
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
 
           <motion.div
             initial={{ opacity: 0 }}

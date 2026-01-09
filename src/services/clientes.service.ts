@@ -21,6 +21,15 @@ export interface ClienteVip {
   potencial_recompra: boolean;
   beneficios_oficiais?: any[];
   beneficios_loja?: any[];
+  veiculos_historico?: Array<{
+    id: string;
+    marca: string;
+    modelo: string;
+    ano: number;
+    placa: string;
+    data_compra: string;
+    created_at: string;
+  }>;
 }
 
 /**

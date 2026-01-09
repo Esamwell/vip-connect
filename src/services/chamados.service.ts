@@ -13,8 +13,15 @@ export interface Chamado {
   data_resolucao?: string;
   observacoes_resolucao?: string;
   created_at: string;
+  updated_at?: string;
   cliente_nome?: string;
   loja_nome?: string;
+  responsavel_nome?: string;
+  veiculo_id?: string;
+  veiculo_marca?: string;
+  veiculo_modelo?: string;
+  veiculo_ano?: number;
+  veiculo_placa?: string;
 }
 
 export interface CriarChamadoData {
@@ -23,6 +30,16 @@ export interface CriarChamadoData {
   titulo: string;
   descricao: string;
   prioridade?: number;
+  veiculo_id?: string;
+}
+
+export interface CriarChamadoPorQRData {
+  qr_code: string;
+  tipo: Chamado['tipo'];
+  titulo: string;
+  descricao: string;
+  prioridade?: number;
+  veiculo_id?: string;
 }
 
 /**
@@ -30,10 +47,34 @@ export interface CriarChamadoData {
  */
 export const chamadosService = {
   /**
-   * Cria um novo chamado
+   * Cria um novo chamado (requer autenticação)
    */
   async create(data: CriarChamadoData): Promise<Chamado> {
     return api.post<Chamado>('/chamados', data);
+  },
+
+  /**
+   * Cria um novo chamado usando QR Code (rota pública)
+   */
+  async createByQR(data: CriarChamadoPorQRData): Promise<Chamado> {
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+    const response = await fetch(`${API_URL}/chamados/qr`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({
+        error: 'Erro ao processar requisição',
+      }));
+      const errorMessage = error.error || error.message || `HTTP ${response.status}: ${response.statusText}`;
+      throw new Error(errorMessage);
+    }
+
+    return response.json();
   },
 
   /**
@@ -51,6 +92,13 @@ export const chamadosService = {
     
     const query = params.toString();
     return api.get<Chamado[]>(`/chamados${query ? `?${query}` : ''}`);
+  },
+
+  /**
+   * Busca um chamado por ID
+   */
+  async getById(id: string): Promise<Chamado & { historico?: any[] }> {
+    return api.get<Chamado & { historico?: any[] }>(`/chamados/${id}`);
   },
 
   /**

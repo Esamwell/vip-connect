@@ -17,12 +17,20 @@ import {
   Calendar,
   Store,
   Star,
-  StarOff
+  StarOff,
+  Clock,
+  AlertCircle,
+  User,
+  Eye,
+  Car
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { VipCard } from '@/components/VipCard';
 import { clientesService, ClienteVip } from '@/services/clientes.service';
 import { chamadosService } from '@/services/chamados.service';
@@ -59,6 +67,7 @@ const ClientCard = () => {
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [titulo, setTitulo] = useState('');
   const [message, setMessage] = useState('');
+  const [selectedVeiculo, setSelectedVeiculo] = useState<string>('');
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -68,6 +77,16 @@ const ClientCard = () => {
   const [avaliacaoEnviada, setAvaliacaoEnviada] = useState(false);
   const [avaliacaoEnviando, setAvaliacaoEnviando] = useState(false);
   const [jaAvaliou, setJaAvaliou] = useState(false);
+
+  // Estados para chamados
+  const [meusChamados, setMeusChamados] = useState<any[]>([]);
+  const [loadingChamados, setLoadingChamados] = useState(false);
+
+  // Estados para modal de respostas
+  const [respostasModalOpen, setRespostasModalOpen] = useState(false);
+  const [respostasChamadoSelecionado, setRespostasChamadoSelecionado] = useState<any>(null);
+  const [respostas, setRespostas] = useState<any[]>([]);
+  const [loadingRespostas, setLoadingRespostas] = useState(false);
 
   // Buscar benefícios disponíveis
   const loadBeneficios = useCallback(async (clienteId: string, qrCode?: string) => {
@@ -108,6 +127,39 @@ const ClientCard = () => {
       setLoadingHistorico(false);
     }
   }, []);
+
+  const loadMeusChamados = useCallback(async (qrCode: string) => {
+    if (!qrCode) return;
+    try {
+      setLoadingChamados(true);
+      const data = await api.get<any[]>(`/chamados/qr/${qrCode}`).catch(() => []);
+      setMeusChamados(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Erro ao carregar chamados:', error);
+      setMeusChamados([]);
+    } finally {
+      setLoadingChamados(false);
+    }
+  }, []);
+
+  const loadRespostasChamado = useCallback(async (chamadoId: string, chamado: any) => {
+    const qrCodeToUse = qrCode || cliente?.qr_code_digital || cliente?.qr_code_fisico || '';
+    if (!qrCodeToUse) return;
+    
+    try {
+      setLoadingRespostas(true);
+      setRespostasChamadoSelecionado(chamado);
+      setRespostasModalOpen(true);
+      
+      const data = await api.get<any[]>(`/chamados/qr/${qrCodeToUse}/${chamadoId}/respostas`).catch(() => []);
+      setRespostas(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Erro ao carregar respostas:', error);
+      setRespostas([]);
+    } finally {
+      setLoadingRespostas(false);
+    }
+  }, [qrCode, cliente]);
 
   // Verificar se já avaliou a loja
   const verificarAvaliacao = useCallback(async (qrCode: string) => {
@@ -208,6 +260,8 @@ const ClientCard = () => {
               loadHistoricoResgates(qrCodeToUse);
               // Verificar se já avaliou a loja usando QR code
               verificarAvaliacao(qrCodeToUse);
+              // Carregar chamados do cliente
+              loadMeusChamados(qrCodeToUse);
             }
           }
         }
@@ -224,7 +278,7 @@ const ClientCard = () => {
     };
 
     buscarCliente();
-  }, [qrCode, isAuthenticated, toast, loadBeneficios, loadHistoricoResgates, verificarAvaliacao]);
+  }, [qrCode, isAuthenticated, toast, loadBeneficios, loadHistoricoResgates, verificarAvaliacao, loadMeusChamados]);
 
   const handleQRSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -238,18 +292,41 @@ const ClientCard = () => {
 
     setIsSubmitting(true);
     try {
-      await chamadosService.create({
-        cliente_vip_id: cliente.id,
-        tipo: selectedType as any,
-        titulo: titulo.trim() || ticketTypes.find(t => t.id === selectedType)?.label || 'Chamado',
-        descricao: message,
-        prioridade: 2,
-      });
+      const qrCodeToUse = qrCode || cliente.qr_code_digital || cliente.qr_code_fisico || '';
+      const tituloChamado = titulo.trim() || ticketTypes.find(t => t.id === selectedType)?.label || 'Chamado';
+      
+      // Se não estiver autenticado, usar rota pública com QR code
+      if (!isAuthenticated && qrCodeToUse) {
+        await chamadosService.createByQR({
+          qr_code: qrCodeToUse,
+          tipo: selectedType as any,
+          titulo: tituloChamado,
+          descricao: message,
+          prioridade: 2,
+          veiculo_id: selectedVeiculo && selectedVeiculo.trim() !== '' ? selectedVeiculo : undefined,
+        });
+      } else {
+        // Se estiver autenticado, usar rota normal
+        await chamadosService.create({
+          cliente_vip_id: cliente.id,
+          tipo: selectedType as any,
+          titulo: tituloChamado,
+          descricao: message,
+          prioridade: 2,
+          veiculo_id: selectedVeiculo && selectedVeiculo.trim() !== '' ? selectedVeiculo : undefined,
+        });
+      }
 
       setSubmitted(true);
       setTitulo('');
       setMessage('');
       setSelectedType(null);
+      setSelectedVeiculo('');
+      
+      // Recarregar lista de chamados após criar novo
+      if (qrCodeToUse) {
+        loadMeusChamados(qrCodeToUse);
+      }
       
       toast({
         title: 'Chamado enviado com sucesso!',
@@ -270,6 +347,7 @@ const ClientCard = () => {
     setSelectedType(null);
     setTitulo('');
     setMessage('');
+    setSelectedVeiculo('');
     setSubmitted(false);
   };
 
@@ -284,6 +362,7 @@ const ClientCard = () => {
 
   // Status do cliente
   const getStatus = (cliente: ClienteVip) => {
+    if (cliente.status === 'cancelado') return 'cancelled';
     if (cliente.status === 'vencido') return 'expired';
     if (cliente.status === 'renovado') return 'renewed';
     const hoje = new Date();
@@ -399,6 +478,7 @@ const ClientCard = () => {
               veiculoModelo={cliente.veiculo_modelo}
               veiculoAno={cliente.veiculo_ano}
               veiculoPlaca={cliente.veiculo_placa}
+              veiculosHistorico={cliente.veiculos_historico}
               qrCodeDigital={cliente.qr_code_digital}
               qrCodeFisico={cliente.qr_code_fisico}
             />
@@ -716,22 +796,23 @@ const ClientCard = () => {
         )}
 
         {/* Atendimento Prioritário - Largura completa */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.25 }}
-        >
-          <Card className="shadow-lg">
-            <CardHeader>
-              <CardTitle className="text-lg font-display flex items-center gap-2">
-                <MessageCircle className="w-5 h-5 text-vip-gold" />
-                Atendimento Prioritário
-              </CardTitle>
-              <CardDescription>
-                Abra um chamado e receba resposta em até 24h
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
+        {cliente.status !== 'cancelado' && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25 }}
+          >
+            <Card className="shadow-lg">
+              <CardHeader>
+                <CardTitle className="text-lg font-display flex items-center gap-2">
+                  <MessageCircle className="w-5 h-5 text-vip-gold" />
+                  Atendimento Prioritário
+                </CardTitle>
+                <CardDescription>
+                  Abra um chamado e receba resposta em até 24h
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
               {!submitted ? (
                 <>
                   {!selectedType ? (
@@ -774,6 +855,41 @@ const ClientCard = () => {
                         onChange={(e) => setTitulo(e.target.value)}
                       />
 
+                      {/* Campo de seleção de veículo - obrigatório para ajuste pós-venda, opcional para outros */}
+                      {cliente?.veiculos_historico && cliente.veiculos_historico.length > 0 && (
+                        <div className="space-y-2">
+                          <Label htmlFor="veiculo" className="text-sm font-medium">
+                            Selecione o Veículo {selectedType === 'ajuste_pos_venda' ? '*' : '(opcional)'}
+                          </Label>
+                          <Select
+                            value={selectedVeiculo || undefined}
+                            onValueChange={(value) => setSelectedVeiculo(value || '')}
+                          >
+                            <SelectTrigger id="veiculo">
+                              <SelectValue placeholder={selectedType === 'ajuste_pos_venda' ? 'Selecione o veículo relacionado ao chamado *' : 'Selecione o veículo relacionado ao chamado (opcional)'} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {cliente.veiculos_historico.map((veiculo) => (
+                                <SelectItem key={veiculo.id} value={veiculo.id}>
+                                  {veiculo.marca} {veiculo.modelo} ({veiculo.ano}) - {veiculo.placa?.toUpperCase()}
+                                  {veiculo.data_compra && (
+                                    <span className="text-xs text-muted-foreground ml-2">
+                                      - Comprado em {format(new Date(veiculo.data_compra), 'MM/yyyy', { locale: ptBR })}
+                                    </span>
+                                  )}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-muted-foreground">
+                            {selectedType === 'ajuste_pos_venda' 
+                              ? 'Selecione o veículo relacionado ao problema de pós-venda (obrigatório)'
+                              : 'Selecione o veículo relacionado ao chamado, se aplicável'
+                            }
+                          </p>
+                        </div>
+                      )}
+
                       <Textarea
                         placeholder="Descreva sua solicitação..."
                         value={message}
@@ -785,7 +901,11 @@ const ClientCard = () => {
                         onClick={handleSubmit}
                         variant="vip" 
                         className="w-full"
-                        disabled={!message.trim() || isSubmitting}
+                        disabled={
+                          !message.trim() || 
+                          isSubmitting || 
+                          (selectedType === 'ajuste_pos_venda' && (!selectedVeiculo || selectedVeiculo === ''))
+                        }
                       >
                         {isSubmitting ? (
                           <>
@@ -825,7 +945,267 @@ const ClientCard = () => {
             </CardContent>
           </Card>
         </motion.div>
+        )}
+
+        {/* Meus Chamados - Largura completa */}
+        {cliente.status !== 'cancelado' && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+          >
+            <Card className="shadow-lg">
+              <CardHeader>
+                <CardTitle className="text-lg font-display flex items-center gap-2">
+                  <MessageCircle className="w-5 h-5 text-vip-gold" />
+                  Meus Chamados
+                </CardTitle>
+                <CardDescription>
+                  Acompanhe o status dos seus chamados de atendimento prioritário
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+              {loadingChamados ? (
+                <div className="py-8 text-center">
+                  <Loader2 className="w-6 h-6 animate-spin text-primary mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">Carregando chamados...</p>
+                </div>
+              ) : meusChamados.length === 0 ? (
+                <div className="py-8 text-center">
+                  <AlertCircle className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-50" />
+                  <p className="text-sm text-muted-foreground">
+                    Você ainda não possui chamados abertos.
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Use a seção "Atendimento Prioritário" acima para abrir um novo chamado.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {meusChamados.map((chamado) => {
+                    const getStatusBadge = (status: string) => {
+                      const variants: Record<string, { variant: 'default' | 'secondary' | 'destructive' | 'outline', label: string, icon: any }> = {
+                        aberto: { variant: 'destructive', label: 'Aberto', icon: AlertCircle },
+                        em_andamento: { variant: 'default', label: 'Em Andamento', icon: Clock },
+                        resolvido: { variant: 'secondary', label: 'Resolvido', icon: CheckCircle },
+                        cancelado: { variant: 'outline', label: 'Cancelado', icon: AlertCircle },
+                      };
+                      const statusInfo = variants[status] || { variant: 'outline', label: status, icon: AlertCircle };
+                      const StatusIcon = statusInfo.icon;
+                      return (
+                        <Badge variant={statusInfo.variant} className="flex items-center gap-1 w-fit">
+                          <StatusIcon className="w-3 h-3" />
+                          {statusInfo.label}
+                        </Badge>
+                      );
+                    };
+
+                    const getTipoLabel = (tipo: string) => {
+                      const labels: Record<string, string> = {
+                        documentacao: 'Documentação',
+                        ajuste_pos_venda: 'Ajuste Pós-Venda',
+                        problema_loja: 'Problema com Loja',
+                        duvidas_gerais: 'Dúvidas Gerais',
+                      };
+                      return labels[tipo] || tipo;
+                    };
+
+                    const getTipoIcon = (tipo: string) => {
+                      const icons: Record<string, any> = {
+                        documentacao: FileText,
+                        ajuste_pos_venda: Wrench,
+                        problema_loja: MessageCircle,
+                        duvidas_gerais: HelpCircle,
+                      };
+                      return icons[tipo] || MessageCircle;
+                    };
+
+                    const TipoIcon = getTipoIcon(chamado.tipo);
+
+                    return (
+                      <div
+                        key={chamado.id}
+                        className="p-4 rounded-xl border border-border bg-card/50 hover:border-primary/50 transition-all"
+                      >
+                        <div className="flex items-start justify-between gap-3 mb-3">
+                          <div className="flex items-start gap-3 flex-1">
+                            <div className="p-2 rounded-lg bg-primary/10">
+                              <TipoIcon className="w-5 h-5 text-primary" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h4 className="font-semibold text-sm">{chamado.titulo}</h4>
+                                {getStatusBadge(chamado.status)}
+                              </div>
+                              <p className="text-xs text-muted-foreground mb-2">
+                                {getTipoLabel(chamado.tipo)}
+                              </p>
+                              {chamado.veiculo_marca && chamado.veiculo_modelo && (
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
+                                  <Car className="w-3 h-3" />
+                                  <span>
+                                    Veículo: {chamado.veiculo_marca} {chamado.veiculo_modelo}
+                                    {chamado.veiculo_ano && ` (${chamado.veiculo_ano})`}
+                                    {chamado.veiculo_placa && ` - ${chamado.veiculo_placa.toUpperCase()}`}
+                                  </span>
+                                </div>
+                              )}
+                              <p className="text-sm text-muted-foreground line-clamp-2">
+                                {chamado.descricao}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground pt-3 border-t border-border/50">
+                          <div className="flex items-center gap-1">
+                            <Calendar className="w-3 h-3" />
+                            <span>
+                              Criado em: {format(new Date(chamado.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                            </span>
+                          </div>
+                          {chamado.data_resolucao && (
+                            <div className="flex items-center gap-1">
+                              <CheckCircle className="w-3 h-3" />
+                              <span>
+                                Resolvido em: {format(new Date(chamado.data_resolucao), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        {chamado.observacoes_resolucao && (
+                          <div className="mt-3 pt-3 border-t border-border/50">
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="text-xs font-medium text-muted-foreground">Última Resposta:</p>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                {chamado.responsavel_nome && (
+                                  <>
+                                    <User className="w-3 h-3" />
+                                    <span>por {chamado.responsavel_nome}</span>
+                                  </>
+                                )}
+                                {(chamado.data_resolucao || chamado.updated_at) && (
+                                  <>
+                                    {chamado.responsavel_nome && <span>•</span>}
+                                    <Calendar className="w-3 h-3" />
+                                    <span>
+                                      {format(
+                                        new Date(chamado.data_resolucao || chamado.updated_at!), 
+                                        "dd/MM/yyyy 'às' HH:mm", 
+                                        { locale: ptBR }
+                                      )}
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                            <p className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-3">
+                              {chamado.observacoes_resolucao}
+                            </p>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="mt-3"
+                              onClick={() => loadRespostasChamado(chamado.id, chamado)}
+                            >
+                              <Eye className="w-4 h-4 mr-2" />
+                              Ver Todas as Respostas
+                            </Button>
+                          </div>
+                        )}
+                        {!chamado.observacoes_resolucao && chamado.status !== 'aberto' && (
+                          <div className="mt-3 pt-3 border-t border-border/50">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => loadRespostasChamado(chamado.id, chamado)}
+                            >
+                              <Eye className="w-4 h-4 mr-2" />
+                              Ver Histórico
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+        )}
       </main>
+
+      {/* Modal de Respostas do Chamado */}
+      <Dialog open={respostasModalOpen} onOpenChange={setRespostasModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageCircle className="w-5 h-5" />
+              Respostas do Chamado
+            </DialogTitle>
+            {respostasChamadoSelecionado && (
+              <DialogDescription className="text-left">
+                <strong>{respostasChamadoSelecionado.titulo}</strong>
+                <span className="block text-xs mt-1">
+                  Criado em: {format(new Date(respostasChamadoSelecionado.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                </span>
+              </DialogDescription>
+            )}
+          </DialogHeader>
+
+          {loadingRespostas ? (
+            <div className="py-8 text-center">
+              <Loader2 className="w-6 h-6 animate-spin text-primary mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">Carregando respostas...</p>
+            </div>
+          ) : respostas.length === 0 ? (
+            <div className="py-8 text-center">
+              <AlertCircle className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-50" />
+              <p className="text-sm text-muted-foreground">
+                Nenhuma resposta encontrada para este chamado.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4 mt-4">
+              {respostas.map((resposta, index) => (
+                <div
+                  key={resposta.id || index}
+                  className="p-4 rounded-xl border border-border bg-muted/30"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <User className="w-4 h-4 text-primary" />
+                      <span className="font-medium text-sm">
+                        {resposta.usuario_nome || 'Sistema'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Calendar className="w-3 h-3" />
+                      <span>
+                        {format(new Date(resposta.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                    {resposta.mensagem}
+                  </p>
+                  {resposta.status_novo && (
+                    <div className="mt-2 pt-2 border-t border-border/50">
+                      <Badge variant="outline" className="text-xs">
+                        Status alterado para: {
+                          resposta.status_novo === 'em_andamento' ? 'Em Andamento' : 
+                          resposta.status_novo === 'aberto' ? 'Aberto' :
+                          resposta.status_novo === 'resolvido' ? 'Resolvido' : 'Cancelado'
+                        }
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

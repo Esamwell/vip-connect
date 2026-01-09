@@ -3,17 +3,24 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { api } from '@/services/api';
 import { BarChart3, TrendingUp, Users, Calendar } from 'lucide-react';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale/pt-BR';
 
 interface RelatorioClientesMes {
+  id: string;
+  cliente_nome: string;
   mes: string;
-  total: number;
+  data_ativacao: string;
   loja_nome?: string;
+  status: string;
 }
 
 interface RelatorioUsoBeneficios {
-  parceiro_nome: string;
-  total_validacoes: number;
+  cliente_nome: string;
   beneficio_nome: string;
+  parceiro_nome: string;
+  data_uso: string;
+  tipo_uso: 'resgatado' | 'validado';
 }
 
 export default function Relatorios() {
@@ -31,12 +38,12 @@ export default function Relatorios() {
       setLoading(true);
       const mesQuery = mesSelecionado && mesSelecionado !== 'all' ? `?mes=${mesSelecionado}` : '';
       const [clientes, beneficios] = await Promise.all([
-        api.get(`/relatorios/clientes-vip-mes${mesQuery}`).catch(() => ({ data: [] })),
-        api.get('/relatorios/uso-beneficios').catch(() => ({ data: [] })),
+        api.get(`/relatorios/clientes-vip-mes${mesQuery}`).catch(() => []),
+        api.get(`/relatorios/uso-beneficios${mesQuery}`).catch(() => []),
       ]);
 
-      setClientesMes(clientes.data || []);
-      setUsoBeneficios(beneficios.data || []);
+      setClientesMes(Array.isArray(clientes) ? clientes : []);
+      setUsoBeneficios(Array.isArray(beneficios) ? beneficios : []);
     } catch (error) {
       console.error('Erro ao carregar relatórios:', error);
     } finally {
@@ -101,21 +108,28 @@ export default function Relatorios() {
                 Nenhum dado disponível
               </p>
             ) : (
-              <div className="space-y-2">
-                {clientesMes.map((item, index) => (
+              <div className="space-y-2 max-h-[500px] overflow-y-auto">
+                {clientesMes.map((item) => (
                   <div
-                    key={index}
-                    className="flex items-center justify-between p-2 rounded-lg bg-muted"
+                    key={item.id}
+                    className="flex items-center justify-between p-3 rounded-lg bg-muted border border-border/50"
                   >
-                    <div>
-                      <p className="font-medium">{item.mes}</p>
-                      {item.loja_nome && (
-                        <p className="text-sm text-muted-foreground">
-                          {item.loja_nome}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{item.cliente_nome}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        {item.loja_nome && (
+                          <>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {item.loja_nome}
+                            </p>
+                            <span className="text-xs text-muted-foreground">•</span>
+                          </>
+                        )}
+                        <p className="text-xs text-muted-foreground">
+                          {format(new Date(item.data_ativacao), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
                         </p>
-                      )}
+                      </div>
                     </div>
-                    <div className="text-2xl font-bold">{item.total}</div>
                   </div>
                 ))}
               </div>
@@ -139,20 +153,38 @@ export default function Relatorios() {
                 Nenhum dado disponível
               </p>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-2 max-h-[500px] overflow-y-auto">
                 {usoBeneficios.map((item, index) => (
                   <div
                     key={index}
-                    className="flex items-center justify-between p-2 rounded-lg bg-muted"
+                    className="flex items-start justify-between p-3 rounded-lg bg-muted border border-border/50"
                   >
-                    <div>
-                      <p className="font-medium">{item.parceiro_nome}</p>
-                      <p className="text-sm text-muted-foreground">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{item.cliente_nome}</p>
+                      <p className="text-xs text-muted-foreground mt-1 truncate">
                         {item.beneficio_nome}
                       </p>
-                    </div>
-                    <div className="text-2xl font-bold">
-                      {item.total_validacoes}
+                      <div className="flex items-center gap-2 mt-1">
+                        {item.parceiro_nome && (
+                          <>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {item.parceiro_nome}
+                            </p>
+                            <span className="text-xs text-muted-foreground">•</span>
+                          </>
+                        )}
+                        <span className={`text-xs px-2 py-0.5 rounded ${
+                          item.tipo_uso === 'resgatado' 
+                            ? 'bg-blue-100 text-blue-700' 
+                            : 'bg-green-100 text-green-700'
+                        }`}>
+                          {item.tipo_uso === 'resgatado' ? 'Resgatado' : 'Validado'}
+                        </span>
+                        <span className="text-xs text-muted-foreground">•</span>
+                        <p className="text-xs text-muted-foreground">
+                          {format(new Date(item.data_uso), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 ))}

@@ -388,27 +388,27 @@ export function NovoBeneficioModal({ open, onOpenChange, onSuccess, apenasOficia
                         </p>
                       </div>
                     ) : (
-                      <Select
-                        value={parceiroSelecionado}
-                        onValueChange={(value) => setValue('parceiro_id', value, { shouldValidate: true })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione o parceiro" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {parceiros.length === 0 ? (
-                            <SelectItem value="none" disabled>
-                              Nenhum parceiro disponível
+                    <Select
+                      value={parceiroSelecionado}
+                      onValueChange={(value) => setValue('parceiro_id', value, { shouldValidate: true })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o parceiro" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {parceiros.length === 0 ? (
+                          <SelectItem value="none" disabled>
+                            Nenhum parceiro disponível
+                          </SelectItem>
+                        ) : (
+                          parceiros.map((parceiro) => (
+                            <SelectItem key={parceiro.id} value={parceiro.id}>
+                              {parceiro.nome}
                             </SelectItem>
-                          ) : (
-                            parceiros.map((parceiro) => (
-                              <SelectItem key={parceiro.id} value={parceiro.id}>
-                                {parceiro.nome}
-                              </SelectItem>
-                            ))
-                          )}
-                        </SelectContent>
-                      </Select>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
                     )}
                   </div>
                 ) : user?.role === 'parceiro' ? (
@@ -463,27 +463,27 @@ export function NovoBeneficioModal({ open, onOpenChange, onSuccess, apenasOficia
                         </p>
                       </div>
                     ) : (
-                      <Select
-                        value={lojaSelecionada}
-                        onValueChange={(value) => setValue('loja_id', value, { shouldValidate: true })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione a loja" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {lojas.length === 0 ? (
-                            <SelectItem value="none" disabled>
-                              Nenhuma loja disponível
+                    <Select
+                      value={lojaSelecionada}
+                      onValueChange={(value) => setValue('loja_id', value, { shouldValidate: true })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione a loja" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {lojas.length === 0 ? (
+                          <SelectItem value="none" disabled>
+                            Nenhuma loja disponível
+                          </SelectItem>
+                        ) : (
+                          lojas.filter(loja => loja.ativo).map((loja) => (
+                            <SelectItem key={loja.id} value={loja.id}>
+                              {loja.nome}
                             </SelectItem>
-                          ) : (
-                            lojas.filter(loja => loja.ativo).map((loja) => (
-                              <SelectItem key={loja.id} value={loja.id}>
-                                {loja.nome}
-                              </SelectItem>
-                            ))
-                          )}
-                        </SelectContent>
-                      </Select>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
                     )}
                   </div>
                 ) : null}
@@ -533,27 +533,27 @@ export function NovoBeneficioModal({ open, onOpenChange, onSuccess, apenasOficia
                       </p>
                     </div>
                   ) : (
-                    <Select
-                      value={parceiroSelecionado}
-                      onValueChange={(value) => setValue('parceiro_id', value, { shouldValidate: true })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o parceiro" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {parceiros.length === 0 ? (
-                          <SelectItem value="none" disabled>
-                            Nenhum parceiro disponível
+                  <Select
+                    value={parceiroSelecionado}
+                    onValueChange={(value) => setValue('parceiro_id', value, { shouldValidate: true })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o parceiro" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {parceiros.length === 0 ? (
+                        <SelectItem value="none" disabled>
+                          Nenhum parceiro disponível
+                        </SelectItem>
+                      ) : (
+                        parceiros.map((parceiro) => (
+                          <SelectItem key={parceiro.id} value={parceiro.id}>
+                            {parceiro.nome}
                           </SelectItem>
-                        ) : (
-                          parceiros.map((parceiro) => (
-                            <SelectItem key={parceiro.id} value={parceiro.id}>
-                              {parceiro.nome}
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
                   )}
                 </div>
               ) : user?.role === 'parceiro' ? (

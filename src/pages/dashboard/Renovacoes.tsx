@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { api } from '@/services/api';
-import { Calendar, AlertCircle, CheckCircle } from 'lucide-react';
+import { Calendar, AlertCircle, CheckCircle, Car } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -25,12 +25,18 @@ interface ClienteVencimento {
 }
 
 interface ClienteRenovado {
-  id: string;
-  nome: string;
+  renovacao_id: string;
+  cliente_vip_id: string;
+  cliente_nome: string;
   whatsapp: string;
   loja_nome: string;
   data_renovacao: string;
   data_validade: string;
+  motivo?: string;
+  veiculo_marca?: string;
+  veiculo_modelo?: string;
+  veiculo_ano?: number;
+  veiculo_placa?: string;
 }
 
 export default function Renovacoes() {
@@ -46,12 +52,12 @@ export default function Renovacoes() {
     try {
       setLoading(true);
       const [vencendoData, renovadosData] = await Promise.all([
-        api.get('/relatorios/clientes-vencimento-proximo').catch(() => ({ data: [] })),
-        api.get('/relatorios/clientes-renovados').catch(() => ({ data: [] })),
+        api.get('/relatorios/clientes-vencimento-proximo').catch(() => []),
+        api.get('/relatorios/clientes-renovados').catch(() => []),
       ]);
 
-      setVencendo(vencendoData.data || []);
-      setRenovados(renovadosData.data || []);
+      setVencendo(Array.isArray(vencendoData) ? vencendoData : []);
+      setRenovados(Array.isArray(renovadosData) ? renovadosData : []);
     } catch (error) {
       console.error('Erro ao carregar renovações:', error);
     } finally {
@@ -171,6 +177,7 @@ export default function Renovacoes() {
                 <TableHead>Cliente</TableHead>
                 <TableHead>WhatsApp</TableHead>
                 <TableHead>Loja</TableHead>
+                <TableHead>Novo Veículo</TableHead>
                 <TableHead>Data Renovação</TableHead>
                 <TableHead>Nova Validade</TableHead>
               </TableRow>
@@ -178,16 +185,33 @@ export default function Renovacoes() {
             <TableBody>
               {renovados.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center text-muted-foreground">
                     Nenhuma renovação registrada
                   </TableCell>
                 </TableRow>
               ) : (
                 renovados.map((cliente) => (
-                  <TableRow key={cliente.id}>
-                    <TableCell className="font-medium">{cliente.nome}</TableCell>
+                  <TableRow key={cliente.renovacao_id || cliente.cliente_vip_id}>
+                    <TableCell className="font-medium">{cliente.cliente_nome}</TableCell>
                     <TableCell>{cliente.whatsapp}</TableCell>
                     <TableCell>{cliente.loja_nome}</TableCell>
+                    <TableCell>
+                      {cliente.veiculo_marca || cliente.veiculo_modelo || cliente.veiculo_ano || cliente.veiculo_placa ? (
+                        <div className="text-sm">
+                          <div className="font-medium">
+                            {cliente.veiculo_marca} {cliente.veiculo_modelo}
+                            {cliente.veiculo_ano && ` (${cliente.veiculo_ano})`}
+                          </div>
+                          {cliente.veiculo_placa && (
+                            <div className="text-xs text-muted-foreground font-mono">
+                              {cliente.veiculo_placa.toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">N/A</span>
+                      )}
+                    </TableCell>
                     <TableCell>
                       {format(new Date(cliente.data_renovacao), 'dd/MM/yyyy', {
                         locale: ptBR,
