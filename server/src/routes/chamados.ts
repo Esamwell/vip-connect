@@ -267,6 +267,8 @@ router.post('/qr', async (req, res) => {
   try {
     const { qr_code, tipo, titulo, descricao, prioridade, veiculo_id } = req.body;
 
+    console.log('Criando chamado por QR Code:', { qr_code, tipo, titulo, veiculo_id });
+
     if (!qr_code || !tipo || !titulo || !descricao) {
       return res.status(400).json({
         error: 'QR Code, tipo, título e descrição são obrigatórios',
@@ -291,6 +293,7 @@ router.post('/qr', async (req, res) => {
     }
 
     const cliente = clienteResult.rows[0];
+    console.log('Cliente encontrado:', cliente.id, 'Loja:', cliente.loja_id);
 
     // Verificar se o cartão está cancelado
     if (cliente.status === 'cancelado') {
@@ -300,20 +303,24 @@ router.post('/qr', async (req, res) => {
     }
 
     // Se veiculo_id foi fornecido, verificar se pertence ao cliente
-    if (veiculo_id) {
+    if (veiculo_id && veiculo_id.trim() !== '') {
+      console.log('Verificando veículo:', veiculo_id, 'para cliente:', cliente.id);
       const veiculoCheck = await pool.query(
         'SELECT id FROM veiculos_cliente_vip WHERE id = $1 AND cliente_vip_id = $2',
         [veiculo_id, cliente.id]
       );
 
       if (veiculoCheck.rows.length === 0) {
+        console.log('Veículo não encontrado ou não pertence ao cliente');
         return res.status(400).json({
           error: 'Veículo não encontrado ou não pertence a este cliente',
         });
       }
+      console.log('Veículo validado:', veiculoCheck.rows[0].id);
     }
 
     // Criar chamado
+    console.log('Criando chamado no banco de dados...');
     const result = await pool.query(
       `INSERT INTO chamados (
         cliente_vip_id, loja_id, tipo, status, titulo, 
@@ -327,11 +334,12 @@ router.post('/qr', async (req, res) => {
         titulo,
         descricao,
         prioridade || 1,
-        veiculo_id || null,
+        veiculo_id && veiculo_id.trim() !== '' ? veiculo_id : null,
       ]
     );
 
     const chamado = result.rows[0];
+    console.log('Chamado criado com sucesso:', chamado.id);
 
     // Registrar no histórico (sem usuario_id, pois é público)
     await pool.query(
@@ -341,19 +349,33 @@ router.post('/qr', async (req, res) => {
       [chamado.id]
     );
 
-    // Disparar evento para MT Leads
-    await enviarEventoMTLeads(EventosMTLeads.CHAMADO_ABERTO, {
-      chamado_id: chamado.id,
-      cliente_vip_id: chamado.cliente_vip_id,
-      loja_id: chamado.loja_id,
-      tipo: chamado.tipo,
-      titulo: chamado.titulo,
-    });
+    // Disparar evento para MT Leads (não crítico)
+    try {
+      await enviarEventoMTLeads(EventosMTLeads.CHAMADO_ABERTO, {
+        chamado_id: chamado.id,
+        cliente_vip_id: chamado.cliente_vip_id,
+        loja_id: chamado.loja_id,
+        tipo: chamado.tipo,
+        titulo: chamado.titulo,
+      });
+    } catch (mtLeadsError: any) {
+      console.warn('Erro ao enviar evento para MT Leads (não crítico):', mtLeadsError.message);
+    }
 
     res.status(201).json(chamado);
   } catch (error: any) {
     console.error('Erro ao criar chamado por QR Code:', error);
-    res.status(500).json({ error: 'Erro interno do servidor' });
+    console.error('Detalhes do erro:', {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      hint: error.hint,
+      stack: error.stack,
+    });
+    res.status(500).json({ 
+      error: 'Erro interno do servidor',
+      message: process.env.NODE_ENV === 'development' ? error.message : undefined,
+    });
   }
 });
 
@@ -396,17 +418,20 @@ router.post(
       const lojaId = clienteResult.rows[0].loja_id;
 
       // Se veiculo_id foi fornecido, verificar se pertence ao cliente
-      if (veiculo_id) {
+      if (veiculo_id && veiculo_id.trim() !== '') {
+        console.log('Verificando veículo:', veiculo_id, 'para cliente:', cliente_vip_id);
         const veiculoCheck = await pool.query(
           'SELECT id FROM veiculos_cliente_vip WHERE id = $1 AND cliente_vip_id = $2',
           [veiculo_id, cliente_vip_id]
         );
 
         if (veiculoCheck.rows.length === 0) {
+          console.log('Veículo não encontrado ou não pertence ao cliente');
           return res.status(400).json({
             error: 'Veículo não encontrado ou não pertence a este cliente',
           });
         }
+        console.log('Veículo validado:', veiculoCheck.rows[0].id);
       }
 
       // Se for cliente VIP, verificar se está criando para si mesmo
@@ -416,6 +441,7 @@ router.post(
       }
 
       // Criar chamado
+      console.log('Criando chamado no banco de dados...');
       const result = await pool.query(
         `INSERT INTO chamados (
           cliente_vip_id, loja_id, tipo, status, titulo, 
@@ -429,11 +455,12 @@ router.post(
           titulo,
           descricao,
           prioridade || 1,
-          veiculo_id || null,
+          veiculo_id && veiculo_id.trim() !== '' ? veiculo_id : null,
         ]
       );
 
       const chamado = result.rows[0];
+      console.log('Chamado criado com sucesso:', chamado.id);
 
       // Registrar no histórico
       await pool.query(
@@ -443,20 +470,34 @@ router.post(
         [chamado.id, req.user!.userId]
       );
 
-      // Disparar evento para MT Leads
-      await enviarEventoMTLeads(EventosMTLeads.CHAMADO_ABERTO, {
-        chamado_id: chamado.id,
-        cliente_vip_id: chamado.cliente_vip_id,
-        loja_id: chamado.loja_id,
-        tipo: chamado.tipo,
-        titulo: chamado.titulo,
-      });
+      // Disparar evento para MT Leads (não crítico)
+      try {
+        await enviarEventoMTLeads(EventosMTLeads.CHAMADO_ABERTO, {
+          chamado_id: chamado.id,
+          cliente_vip_id: chamado.cliente_vip_id,
+          loja_id: chamado.loja_id,
+          tipo: chamado.tipo,
+          titulo: chamado.titulo,
+        });
+      } catch (mtLeadsError: any) {
+        console.warn('Erro ao enviar evento para MT Leads (não crítico):', mtLeadsError.message);
+      }
 
       res.status(201).json(chamado);
-    } catch (error: any) {
-      console.error('Erro ao criar chamado:', error);
-      res.status(500).json({ error: 'Erro interno do servidor' });
-    }
+  } catch (error: any) {
+    console.error('Erro ao criar chamado:', error);
+    console.error('Detalhes do erro:', {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      hint: error.hint,
+      stack: error.stack,
+    });
+    res.status(500).json({ 
+      error: 'Erro interno do servidor',
+      message: process.env.NODE_ENV === 'development' ? error.message : undefined,
+    });
+  }
   }
 );
 
