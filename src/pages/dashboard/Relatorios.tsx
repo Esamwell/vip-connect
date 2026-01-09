@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
 import { api } from '@/services/api';
-import { BarChart3, TrendingUp, Users, Calendar } from 'lucide-react';
+import { BarChart3, TrendingUp, Users, Calendar, FileDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale/pt-BR';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { useToast } from '@/hooks/use-toast';
 
 interface RelatorioClientesMes {
   id: string;
@@ -27,7 +31,9 @@ export default function Relatorios() {
   const [clientesMes, setClientesMes] = useState<RelatorioClientesMes[]>([]);
   const [usoBeneficios, setUsoBeneficios] = useState<RelatorioUsoBeneficios[]>([]);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
   const [mesSelecionado, setMesSelecionado] = useState<string>('all');
+  const { toast } = useToast();
 
   useEffect(() => {
     loadRelatorios();
@@ -51,6 +57,133 @@ export default function Relatorios() {
     }
   };
 
+  const handleExportarPDF = () => {
+    try {
+      setExporting(true);
+
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      let yPosition = 20;
+
+      // Título do relatório
+      doc.setFontSize(20);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Relatórios do Sistema', pageWidth / 2, yPosition, { align: 'center' });
+      yPosition += 10;
+
+      // Data e filtro
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'normal');
+      const dataAtual = format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
+      doc.text(`Data: ${dataAtual}`, pageWidth / 2, yPosition, { align: 'center' });
+      yPosition += 5;
+
+      if (mesSelecionado !== 'all') {
+        const meses = [
+          '', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+          'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+        ];
+        doc.text(`Filtro: ${meses[parseInt(mesSelecionado)]}`, pageWidth / 2, yPosition, { align: 'center' });
+        yPosition += 5;
+      }
+
+      yPosition += 10;
+
+      // Seção: Clientes VIP por Mês
+      if (clientesMes.length > 0) {
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Clientes VIP por Mês', 14, yPosition);
+        yPosition += 8;
+
+        const clientesData = clientesMes.map((item) => [
+          item.cliente_nome,
+          item.loja_nome || 'N/A',
+          format(new Date(item.data_ativacao), 'dd/MM/yyyy', { locale: ptBR }),
+          item.status.charAt(0).toUpperCase() + item.status.slice(1)
+        ]);
+
+        autoTable(doc, {
+          startY: yPosition,
+          head: [['Cliente', 'Loja', 'Data Ativação', 'Status']],
+          body: clientesData,
+          theme: 'striped',
+          headStyles: { fillColor: [220, 38, 38], textColor: 255, fontStyle: 'bold' },
+          styles: { fontSize: 9 },
+          margin: { left: 14, right: 14 },
+        });
+
+        const finalY = (doc as any).lastAutoTable?.finalY;
+        yPosition = finalY ? finalY + 15 : yPosition + 50;
+      }
+
+      // Seção: Uso de Benefícios
+      if (usoBeneficios.length > 0) {
+        // Verificar se precisa de nova página
+        if (yPosition > pageHeight - 50) {
+          doc.addPage();
+          yPosition = 20;
+        }
+
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Uso de Benefícios', 14, yPosition);
+        yPosition += 8;
+
+        const beneficiosData = usoBeneficios.map((item) => [
+          item.cliente_nome,
+          item.beneficio_nome,
+          item.parceiro_nome || 'N/A',
+          item.tipo_uso === 'resgatado' ? 'Resgatado' : 'Validado',
+          format(new Date(item.data_uso), 'dd/MM/yyyy', { locale: ptBR })
+        ]);
+
+        autoTable(doc, {
+          startY: yPosition,
+          head: [['Cliente', 'Benefício', 'Parceiro', 'Tipo', 'Data']],
+          body: beneficiosData,
+          theme: 'striped',
+          headStyles: { fillColor: [220, 38, 38], textColor: 255, fontStyle: 'bold' },
+          styles: { fontSize: 9 },
+          margin: { left: 14, right: 14 },
+        });
+      }
+
+      // Rodapé
+      const totalPages = doc.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'italic');
+        doc.text(
+          `Página ${i} de ${totalPages}`,
+          pageWidth / 2,
+          pageHeight - 10,
+          { align: 'center' }
+        );
+      }
+
+      // Salvar PDF
+      const nomeArquivo = `relatorios_${mesSelecionado === 'all' ? 'todos' : mesSelecionado}_${format(new Date(), 'yyyy-MM-dd')}.pdf`;
+      doc.save(nomeArquivo);
+
+      toast({
+        title: 'PDF exportado com sucesso!',
+        description: `Relatório exportado: ${nomeArquivo}`,
+      });
+    } catch (error: any) {
+      console.error('Erro ao exportar PDF:', error);
+      toast({
+        title: 'Erro ao exportar PDF',
+        description: error.message || 'Ocorreu um erro ao gerar o PDF',
+        variant: 'destructive',
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -61,11 +194,21 @@ export default function Relatorios() {
 
   return (
     <div className="space-y-6 w-full">
-      <div>
-        <h1 className="text-3xl font-bold tracking-[-0.03em]">Relatórios</h1>
-        <p className="text-muted-foreground text-[15px] leading-relaxed">
-          Visualize relatórios e estatísticas do sistema
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-[-0.03em]">Relatórios</h1>
+          <p className="text-muted-foreground text-[15px] leading-relaxed">
+            Visualize relatórios e estatísticas do sistema
+          </p>
+        </div>
+        <Button
+          onClick={handleExportarPDF}
+          disabled={exporting || (clientesMes.length === 0 && usoBeneficios.length === 0)}
+          variant="outline"
+        >
+          <FileDown className={`w-4 h-4 mr-2 ${exporting ? 'animate-spin' : ''}`} />
+          {exporting ? 'Gerando PDF...' : 'Exportar PDF'}
+        </Button>
       </div>
 
       <div className="flex items-center gap-4">

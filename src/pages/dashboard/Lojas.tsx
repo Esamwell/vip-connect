@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Store, Plus, Eye } from 'lucide-react';
 import { api } from '@/services/api';
 import { NovaLojaModal } from '@/components/modals/NovaLojaModal';
+import { VerLojaModal } from '@/components/modals/VerLojaModal';
 
 interface Loja {
   id: string;
@@ -27,6 +28,8 @@ export default function Lojas() {
   const [lojas, setLojas] = useState<Loja[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+  const [lojaModalOpen, setLojaModalOpen] = useState(false);
+  const [lojaSelecionada, setLojaSelecionada] = useState<string | null>(null);
 
   useEffect(() => {
     loadLojas();
@@ -78,6 +81,12 @@ export default function Lojas() {
         onSuccess={handleNovaLojaSuccess}
       />
 
+      <VerLojaModal
+        open={lojaModalOpen}
+        onOpenChange={setLojaModalOpen}
+        lojaId={lojaSelecionada}
+      />
+
       <Card>
         <CardHeader>
           <CardTitle>Lista de Lojas</CardTitle>
@@ -114,7 +123,14 @@ export default function Lojas() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="sm">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setLojaSelecionada(loja.id);
+                          setLojaModalOpen(true);
+                        }}
+                      >
                         <Eye className="w-4 h-4 mr-2" />
                         Ver
                       </Button>

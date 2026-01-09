@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Handshake, Plus, Eye } from 'lucide-react';
 import { api } from '@/services/api';
 import { NovoParceiroModal } from '@/components/modals/NovoParceiroModal';
+import { VerParceiroModal } from '@/components/modals/VerParceiroModal';
 
 interface Parceiro {
   id: string;
@@ -28,6 +29,8 @@ export default function Parceiros() {
   const [parceiros, setParceiros] = useState<Parceiro[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+  const [parceiroModalOpen, setParceiroModalOpen] = useState(false);
+  const [parceiroSelecionado, setParceiroSelecionado] = useState<string | null>(null);
 
   useEffect(() => {
     loadParceiros();
@@ -79,6 +82,12 @@ export default function Parceiros() {
         onSuccess={handleNovoParceiroSuccess}
       />
 
+      <VerParceiroModal
+        open={parceiroModalOpen}
+        onOpenChange={setParceiroModalOpen}
+        parceiroId={parceiroSelecionado}
+      />
+
       <Card>
         <CardHeader>
           <CardTitle>Lista de Parceiros</CardTitle>
@@ -119,7 +128,14 @@ export default function Parceiros() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="sm">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setParceiroSelecionado(parceiro.id);
+                          setParceiroModalOpen(true);
+                        }}
+                      >
                         <Eye className="w-4 h-4 mr-2" />
                         Ver
                       </Button>
