@@ -57,11 +57,11 @@ const Login = () => {
       >
         <Card className="shadow-2xl border-2">
           <CardHeader className="text-center space-y-4">
-            <div className="w-16 h-16 rounded-full overflow-hidden flex items-center justify-center mx-auto shadow-vip bg-background">
+            <div className="flex items-center justify-center mx-auto">
               <img 
                 src="/logovipasi.png" 
                 alt="Cliente VIP" 
-                className="w-full h-full object-contain"
+                className="w-40 h-40 object-contain"
               />
             </div>
             <div>

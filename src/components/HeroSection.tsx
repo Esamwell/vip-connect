@@ -170,6 +170,7 @@ export function HeroSection() {
                 validUntil="15/01/2026"
                 status="active"
                 memberSince="15/01/2025"
+                customBackground="#a41316"
               />
             </div>
           </motion.div>

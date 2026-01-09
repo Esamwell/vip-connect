@@ -29,6 +29,7 @@ interface VipCardProps {
   veiculosHistorico?: VeiculoHistorico[];
   qrCodeDigital?: string;
   qrCodeFisico?: string;
+  customBackground?: string;
 }
 
 const statusConfig = {
@@ -72,7 +73,8 @@ export function VipCard({
   veiculoPlaca,
   veiculosHistorico,
   qrCodeDigital,
-  qrCodeFisico
+  qrCodeFisico,
+  customBackground
 }: VipCardProps) {
   const statusInfo = statusConfig[status];
   const StatusIcon = statusInfo.icon;
@@ -88,7 +90,7 @@ export function VipCard({
       style={{ perspective: '1000px' }}
     >
       <motion.div
-        className="relative gradient-card rounded-2xl p-6 shadow-card overflow-hidden transform-gpu transition-all duration-500 group cursor-pointer"
+        className="relative rounded-2xl p-6 shadow-card overflow-hidden transform-gpu transition-all duration-500 group cursor-pointer"
         whileHover={{ 
           scale: 1.05,
           rotateY: 8,
@@ -104,6 +106,7 @@ export function VipCard({
         }}
         style={{
           transformStyle: 'preserve-3d',
+          ...(customBackground ? { backgroundColor: customBackground } : {}),
         }}
       >
         {/* Shine effect overlay */}
