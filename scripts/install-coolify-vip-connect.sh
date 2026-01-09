@@ -200,22 +200,172 @@ wait_for_coolify() {
     return 1
 }
 
-# Criar PostgreSQL via API do Coolify
-create_postgresql_via_api() {
+# Criar rede Docker compartilhada (se não existir)
+create_docker_network() {
+    print_info "Verificando rede Docker compartilhada..."
+    
+    # Tentar encontrar rede do Coolify
+    COOLIFY_NETWORK=$(docker network ls --format '{{.Name}}' | grep -i coolify | head -n 1)
+    
+    if [ -n "$COOLIFY_NETWORK" ]; then
+        print_success "Rede Coolify encontrada: $COOLIFY_NETWORK"
+        NETWORK_NAME="$COOLIFY_NETWORK"
+    else
+        # Criar rede compartilhada
+        NETWORK_NAME="vip-connect-network"
+        if ! docker network inspect "$NETWORK_NAME" > /dev/null 2>&1; then
+            print_info "Criando rede Docker compartilhada: $NETWORK_NAME"
+            docker network create "$NETWORK_NAME" > /dev/null 2>&1 || print_info "Rede já existe"
+            print_success "Rede Docker criada: $NETWORK_NAME"
+        else
+            print_info "Rede Docker já existe: $NETWORK_NAME"
+        fi
+    fi
+    
+    echo "$NETWORK_NAME"
+}
+
+# Criar PostgreSQL automaticamente via Docker
+create_postgresql_automatically() {
+    print_header "Criando PostgreSQL Automaticamente"
+
+    # Verificar se o container já existe
+    if docker ps -a --format '{{.Names}}' | grep -q "^vip-connect-db$"; then
+        print_warning "Container PostgreSQL 'vip-connect-db' já existe"
+        read -p "Deseja recriar? Isso apagará os dados existentes! (y/n): " recreate
+        if [[ $recreate =~ ^[Yy]$ ]]; then
+            print_info "Removendo container existente..."
+            docker stop vip-connect-db 2>/dev/null || true
+            docker rm vip-connect-db 2>/dev/null || true
+        else
+            print_info "Usando container PostgreSQL existente"
+            # Conectar à rede se ainda não estiver conectado
+            NETWORK_NAME=$(create_docker_network)
+            docker network connect "$NETWORK_NAME" vip-connect-db 2>/dev/null || true
+            return 0
+        fi
+    fi
+
+    # Criar rede Docker compartilhada
+    NETWORK_NAME=$(create_docker_network)
+
+    # Criar volume para persistência
+    print_info "Criando volume para dados do PostgreSQL..."
+    docker volume create vip-connect-db-data 2>/dev/null || print_info "Volume já existe"
+
+    # Criar e iniciar container PostgreSQL
+    print_info "Criando container PostgreSQL..."
+    docker run -d \
+        --name vip-connect-db \
+        --restart unless-stopped \
+        --network "$NETWORK_NAME" \
+        -e POSTGRES_PASSWORD="$POSTGRES_PASSWORD" \
+        -e POSTGRES_DB=postgres \
+        -e PGDATA=/var/lib/postgresql/data/pgdata \
+        -v vip-connect-db-data:/var/lib/postgresql/data \
+        -p 5432:5432 \
+        postgres:15-alpine
+
+    if [ $? -ne 0 ]; then
+        print_error "Falha ao criar container PostgreSQL"
+        return 1
+    fi
+
+    print_success "Container PostgreSQL criado"
+
+    # Aguardar PostgreSQL estar pronto
+    print_info "Aguardando PostgreSQL iniciar..."
+    max_attempts=30
+    attempt=0
+    
+    while [ $attempt -lt $max_attempts ]; do
+        if docker exec vip-connect-db pg_isready -U postgres > /dev/null 2>&1; then
+            print_success "PostgreSQL está pronto!"
+            break
+        fi
+        
+        attempt=$((attempt + 1))
+        echo -n "."
+        sleep 2
+    done
+    
+    if [ $attempt -eq $max_attempts ]; then
+        print_error "PostgreSQL não iniciou a tempo"
+        return 1
+    fi
+
+    # Configurar banco de dados
+    print_info "Configurando banco de dados..."
+    
+    # Criar banco vip_connect
+    docker exec vip-connect-db psql -U postgres -c "CREATE DATABASE vip_connect;" 2>/dev/null || print_info "Banco vip_connect já existe"
+
+    # Criar extensões
+    docker exec vip-connect-db psql -U postgres -d vip_connect -c "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";" 2>/dev/null
+    docker exec vip-connect-db psql -U postgres -d vip_connect -c "CREATE EXTENSION IF NOT EXISTS \"pg_trgm\";" 2>/dev/null
+
+    print_success "Extensões criadas"
+
+    # Baixar e executar schema
+    print_info "Baixando schema SQL..."
+    SCHEMA_URL="https://raw.githubusercontent.com/$GITHUB_REPO/$GITHUB_BRANCH/main/database/schema.sql"
+    
+    # Tentar baixar o schema
+    if curl -fsSL "$SCHEMA_URL" -o /tmp/schema.sql 2>/dev/null; then
+        print_success "Schema baixado com sucesso"
+        
+        # Copiar schema para o container
+        docker cp /tmp/schema.sql vip-connect-db:/tmp/schema.sql
+        
+        # Executar schema
+        print_info "Executando schema SQL (isso pode levar alguns minutos)..."
+        if docker exec vip-connect-db psql -U postgres -d vip_connect -f /tmp/schema.sql > /tmp/schema-output.log 2>&1; then
+            print_success "Schema executado com sucesso!"
+            rm -f /tmp/schema.sql
+        else
+            print_warning "Houve alguns avisos ao executar o schema. Verifique /tmp/schema-output.log"
+            print_info "O banco foi criado, mas você pode precisar executar o schema manualmente"
+        fi
+    else
+        print_warning "Não foi possível baixar o schema automaticamente"
+        print_info "Você precisará executar o schema manualmente depois"
+        print_info "URL do schema: $SCHEMA_URL"
+    fi
+
+    print_success "PostgreSQL configurado e pronto para uso!"
+    print_info "Container: vip-connect-db"
+    print_info "Rede Docker: $NETWORK_NAME"
+    print_info "Porta: 5432"
+    print_info "Usuário: postgres"
+    print_info "Senha: [configurada anteriormente]"
+    print_info "Banco: vip_connect"
+    print_info ""
+    print_info "Para conectar do Coolify, use:"
+    print_info "  DATABASE_HOST=vip-connect-db"
+    print_info "  (ou o IP do container se estiver em rede diferente)"
+    
+    # Salvar nome da rede para uso posterior
+    echo "$NETWORK_NAME" > /tmp/vip-connect-network-name.txt
+    
+    return 0
+}
+
+# Criar PostgreSQL via Coolify (se token fornecido)
+create_postgresql_via_coolify() {
     if [ -z "$COOLIFY_TOKEN" ]; then
         return 1
     fi
 
-    print_header "Criando PostgreSQL via API"
+    print_header "Criando PostgreSQL via Coolify API"
 
-    # Esta função tentaria criar via API, mas a API do Coolify pode variar
-    # Por enquanto, vamos fornecer instruções manuais
-    print_info "Criando PostgreSQL..."
+    # Nota: A API do Coolify pode variar
+    # Por enquanto, vamos criar via Docker diretamente
+    # e depois o usuário pode importar no Coolify se necessário
     
-    # Nota: A API do Coolify pode não ter endpoints públicos documentados
-    # para criar recursos. Vamos fornecer instruções manuais.
+    print_info "Criando PostgreSQL via Docker (será compatível com Coolify)..."
+    create_postgresql_automatically
     
-    return 1
+    return 0
 }
 
 # Criar script de configuração do banco
@@ -271,6 +421,9 @@ DBSCRIPT
 generate_coolify_config() {
     print_header "Gerando Arquivo de Configuração"
 
+    # Ler nome da rede se existir
+    NETWORK_NAME_CONFIG=$(cat /tmp/vip-connect-network-name.txt 2>/dev/null || echo "vip-connect-network ou rede Coolify")
+
     cat > /tmp/vip-connect-coolify-config.txt << CONFIG
 ════════════════════════════════════════════════════════════
   CONFIGURAÇÃO VIP CONNECT - COOLIFY
@@ -286,12 +439,51 @@ PostgreSQL Password: $POSTGRES_PASSWORD
 JWT Secret: $JWT_SECRET
 
 ════════════════════════════════════════════════════════════
-  PASSO 1: CONFIGURAR POSTGRESQL
+  PASSO 1: POSTGRESQL
 ════════════════════════════════════════════════════════════
+
+✅ PostgreSQL já foi criado automaticamente!
+
+Container Docker: vip-connect-db
+Rede Docker: $NETWORK_NAME_CONFIG
+Porta: 5432
+Usuário: postgres
+Senha: $POSTGRES_PASSWORD
+Banco: vip_connect
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+OPÇÃO 1: Usar PostgreSQL criado automaticamente (Recomendado)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+O PostgreSQL já está rodando e configurado em uma rede Docker compartilhada.
+No Coolify, ao criar o backend, você tem duas opções:
+
+A) Se o Coolify usar a mesma rede Docker:
+   DATABASE_HOST=vip-connect-db
+   DATABASE_PORT=5432
+   DATABASE_NAME=vip_connect
+   DATABASE_USER=postgres
+   DATABASE_PASSWORD=$POSTGRES_PASSWORD
+
+B) Se precisar usar IP (verificar IP do container):
+   docker inspect vip-connect-db | grep IPAddress
+   # Use o IP retornado no DATABASE_HOST
+
+C) Conectar o backend à mesma rede do PostgreSQL:
+   No Coolify, nas configurações do backend, adicione a rede Docker:
+   $NETWORK_NAME_CONFIG
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+OPÇÃO 2: Criar PostgreSQL no Coolify (Alternativa)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Se preferir criar via interface do Coolify:
 
 1. No Coolify, vá em "New Resource" → "Database" → "PostgreSQL"
 2. Configure:
-   - Nome: vip-connect-db
+   - Nome: vip-connect-db-coolify
    - Versão: 15
    - Senha: $POSTGRES_PASSWORD
    - Volume: Criar volume persistente
@@ -299,17 +491,28 @@ JWT Secret: $JWT_SECRET
 3. Após criar, execute no terminal do PostgreSQL:
    bash /tmp/setup-vip-connect-db.sh
 
-   OU manualmente:
-   psql -U postgres
-   CREATE DATABASE vip_connect;
-   \\c vip_connect
-   CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-   CREATE EXTENSION IF NOT EXISTS "pg_trgm";
-   \\q
-   
-   # Baixar e executar schema
-   curl -o /tmp/schema.sql https://raw.githubusercontent.com/$GITHUB_REPO/$GITHUB_BRANCH/main/database/schema.sql
-   psql -U postgres -d vip_connect -f /tmp/schema.sql
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+COMANDOS ÚTEIS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+# Ver status do PostgreSQL
+docker ps | grep vip-connect-db
+
+# Ver logs do PostgreSQL
+docker logs vip-connect-db
+
+# Conectar ao PostgreSQL
+docker exec -it vip-connect-db psql -U postgres -d vip_connect
+
+# Reiniciar PostgreSQL
+docker restart vip-connect-db
+
+# Parar PostgreSQL
+docker stop vip-connect-db
+
+# Iniciar PostgreSQL
+docker start vip-connect-db
 
 ════════════════════════════════════════════════════════════
   PASSO 2: CONFIGURAR BACKEND
@@ -335,6 +538,11 @@ JWT Secret: $JWT_SECRET
    CORS_ORIGIN=https://$FRONTEND_DOMAIN
    NODE_ENV=production
    PORT=3000
+
+   ⚠️ IMPORTANTE: Se o backend estiver em container Docker separado,
+   você pode precisar usar o IP do container vip-connect-db ou
+   configurar uma rede Docker compartilhada. Para descobrir o IP:
+   docker inspect vip-connect-db | grep IPAddress
 
 5. Domínio:
    - Configure domínio: $BACKEND_DOMAIN
@@ -405,6 +613,25 @@ main() {
     install_docker
     install_coolify
     
+    # Aguardar Coolify estar pronto antes de criar PostgreSQL
+    wait_for_coolify
+    
+    # Criar PostgreSQL automaticamente
+    print_info "Deseja criar o PostgreSQL automaticamente agora? (recomendado)"
+    read -p "Criar PostgreSQL automaticamente? (y/n) [y]: " create_db
+    create_db=${create_db:-y}
+    
+    if [[ $create_db =~ ^[Yy]$ ]]; then
+        if [ -n "$COOLIFY_TOKEN" ]; then
+            create_postgresql_via_coolify || create_postgresql_automatically
+        else
+            create_postgresql_automatically
+        fi
+    else
+        print_info "PostgreSQL não será criado automaticamente"
+        print_info "Você pode criá-lo depois seguindo as instruções em /tmp/vip-connect-coolify-config.txt"
+    fi
+    
     create_database_setup_script
     generate_coolify_config
     
@@ -412,6 +639,15 @@ main() {
     
     echo ""
     print_success "Coolify foi instalado com sucesso!"
+    
+    # Verificar se PostgreSQL foi criado
+    if docker ps --format '{{.Names}}' | grep -q "^vip-connect-db$"; then
+        echo ""
+        print_success "PostgreSQL foi criado e configurado automaticamente!"
+        print_info "Container: vip-connect-db"
+        print_info "Status: $(docker ps --filter name=vip-connect-db --format '{{.Status}}')"
+    fi
+    
     echo ""
     print_info "Próximos passos:"
     echo ""
@@ -419,14 +655,22 @@ main() {
     echo "2. Configure sua conta de administrador"
     echo "3. Siga as instruções em: /tmp/vip-connect-coolify-config.txt"
     echo ""
-    echo "Para visualizar as instruções:"
+    echo "Para visualizar as instruções completas:"
     echo "  cat /tmp/vip-connect-coolify-config.txt"
+    echo ""
+    echo "Para verificar o PostgreSQL:"
+    echo "  docker ps | grep vip-connect-db"
+    echo "  docker logs vip-connect-db"
     echo ""
     print_warning "IMPORTANTE: Guarde as senhas geradas em local seguro!"
     echo ""
     echo "PostgreSQL Password: $POSTGRES_PASSWORD"
     echo "JWT Secret: $JWT_SECRET"
     echo ""
+    if [ -f /tmp/vip-connect-network-name.txt ]; then
+        echo "Rede Docker: $(cat /tmp/vip-connect-network-name.txt)"
+        echo ""
+    fi
 }
 
 # Executar função principal
