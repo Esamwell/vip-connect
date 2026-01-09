@@ -26,20 +26,21 @@ export function HeroSection() {
         className="absolute top-32 left-[10%]"
         animate={{ y: [0, -20, 0], rotate: [0, 10, 0] }}
         transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-        style={{ color: 'rgba(164, 19, 22, 0.1)' }}
+        style={{ color: 'rgba(164, 19, 22, 0.15)' }}
       >
         <div className="relative">
-          <div className="absolute inset-0 rounded-full blur-xl" style={{ backgroundColor: 'rgba(164, 19, 22, 0.05)' }} />
+          <div className="absolute inset-0 rounded-full blur-xl" style={{ backgroundColor: 'rgba(164, 19, 22, 0.08)' }} />
           <Crown className="w-16 h-16 relative z-10" />
         </div>
       </motion.div>
       <motion.div 
-        className="absolute top-48 right-[15%] text-primary/8"
+        className="absolute top-48 right-[15%]"
         animate={{ y: [0, 15, 0], rotate: [0, -5, 0] }}
         transition={{ duration: 7, repeat: Infinity, delay: 1, ease: "easeInOut" }}
+        style={{ color: 'rgba(164, 19, 22, 0.12)' }}
       >
         <div className="relative">
-          <div className="absolute inset-0 bg-primary/5 rounded-full blur-xl" />
+          <div className="absolute inset-0 bg-primary/8 rounded-full blur-xl" />
           <Car className="w-20 h-20 relative z-10" />
         </div>
       </motion.div>
@@ -47,11 +48,84 @@ export function HeroSection() {
         className="absolute bottom-32 left-[20%]"
         animate={{ y: [0, -15, 0] }}
         transition={{ duration: 6, repeat: Infinity, delay: 0.5, ease: "easeInOut" }}
-        style={{ color: 'rgba(164, 19, 22, 0.08)' }}
+        style={{ color: 'rgba(164, 19, 22, 0.12)' }}
       >
         <div className="relative">
-          <div className="absolute inset-0 rounded-full blur-xl" style={{ backgroundColor: 'rgba(164, 19, 22, 0.05)' }} />
+          <div className="absolute inset-0 rounded-full blur-xl" style={{ backgroundColor: 'rgba(164, 19, 22, 0.08)' }} />
           <Sparkles className="w-12 h-12 relative z-10" />
+        </div>
+      </motion.div>
+      
+      {/* Additional VIP and Car Decorative Elements */}
+      <motion.div 
+        className="absolute top-64 right-[25%]"
+        animate={{ y: [0, -10, 0], rotate: [0, 15, 0] }}
+        transition={{ duration: 9, repeat: Infinity, delay: 0.3, ease: "easeInOut" }}
+        style={{ color: 'rgba(164, 19, 22, 0.25)' }}
+      >
+        <div className="relative">
+          <div className="absolute inset-0 rounded-full blur-xl" style={{ backgroundColor: 'rgba(164, 19, 22, 0.12)' }} />
+          <Crown className="w-14 h-14 relative z-10" />
+        </div>
+      </motion.div>
+      
+      <motion.div 
+        className="absolute bottom-48 right-[8%]"
+        animate={{ y: [0, 12, 0], rotate: [0, -10, 0] }}
+        transition={{ duration: 8, repeat: Infinity, delay: 1.5, ease: "easeInOut" }}
+        style={{ color: 'rgba(164, 19, 22, 0.22)' }}
+      >
+        <div className="relative">
+          <div className="absolute inset-0 bg-primary/12 rounded-full blur-xl" />
+          <Car className="w-16 h-16 relative z-10" />
+        </div>
+      </motion.div>
+      
+      <motion.div 
+        className="absolute top-96 left-[5%]"
+        animate={{ y: [0, -8, 0], rotate: [0, 8, 0] }}
+        transition={{ duration: 7, repeat: Infinity, delay: 0.8, ease: "easeInOut" }}
+        style={{ color: 'rgba(164, 19, 22, 0.25)' }}
+      >
+        <div className="relative">
+          <div className="absolute inset-0 rounded-full blur-xl" style={{ backgroundColor: 'rgba(164, 19, 22, 0.12)' }} />
+          <Star className="w-12 h-12 relative z-10" />
+        </div>
+      </motion.div>
+      
+      <motion.div 
+        className="absolute bottom-64 left-[12%]"
+        animate={{ y: [0, -12, 0], rotate: [0, -12, 0] }}
+        transition={{ duration: 10, repeat: Infinity, delay: 2, ease: "easeInOut" }}
+        style={{ color: 'rgba(164, 19, 22, 0.22)' }}
+      >
+        <div className="relative">
+          <div className="absolute inset-0 bg-primary/12 rounded-full blur-xl" />
+          <Car className="w-16 h-16 relative z-10" />
+        </div>
+      </motion.div>
+      
+      <motion.div 
+        className="absolute top-1/3 right-[35%]"
+        animate={{ y: [0, 10, 0], rotate: [0, 5, 0] }}
+        transition={{ duration: 8, repeat: Infinity, delay: 1.2, ease: "easeInOut" }}
+        style={{ color: 'rgba(164, 19, 22, 0.25)' }}
+      >
+        <div className="relative">
+          <div className="absolute inset-0 rounded-full blur-xl" style={{ backgroundColor: 'rgba(164, 19, 22, 0.12)' }} />
+          <Crown className="w-10 h-10 relative z-10" />
+        </div>
+      </motion.div>
+      
+      <motion.div 
+        className="absolute bottom-1/3 right-[20%]"
+        animate={{ y: [0, -8, 0], rotate: [0, -8, 0] }}
+        transition={{ duration: 9, repeat: Infinity, delay: 0.6, ease: "easeInOut" }}
+        style={{ color: 'rgba(164, 19, 22, 0.22)' }}
+      >
+        <div className="relative">
+          <div className="absolute inset-0 bg-primary/12 rounded-full blur-xl" />
+          <Star className="w-14 h-14 relative z-10" />
         </div>
       </motion.div>
 

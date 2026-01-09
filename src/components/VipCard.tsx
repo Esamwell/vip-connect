@@ -115,6 +115,11 @@ export function VipCard({
         {/* Gold accent line */}
         <div className="absolute top-0 left-0 right-0 h-1 gradient-vip" />
         
+        {/* Decorative car icon - red and transparent */}
+        <div className="absolute top-4 right-4 opacity-15 pointer-events-none">
+          <Car className="w-32 h-32" style={{ color: '#ffffff', strokeWidth: 1.5 }} />
+        </div>
+        
         {/* Header */}
         <div className="relative z-10 flex items-start justify-between mb-6">
           <div className="flex items-center gap-3">
