@@ -19,6 +19,8 @@ router.get(
       
       // Variáveis para filtros baseados no role
       let lojaId: string | null = null;
+      let lojaFilter = '';
+      let lojaParams: any[] = [];
 
       // Se for lojista, buscar sua loja
       if (userRole === 'lojista') {

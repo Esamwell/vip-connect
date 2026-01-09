@@ -565,7 +565,12 @@ router.patch(
 
       // Verificar se lojista tem acesso ao chamado
       if (req.user!.role === 'lojista') {
-        if (chamadoAtual.rows[0].loja_id !== req.user!.lojaId) {
+        // Buscar loja do lojista
+        const lojaResult = await pool.query(
+          'SELECT id FROM lojas WHERE user_id = $1 AND ativo = true LIMIT 1',
+          [req.user!.userId]
+        );
+        if (lojaResult.rows.length > 0 && chamadoAtual.rows[0].loja_id !== lojaResult.rows[0].id) {
           return res.status(403).json({
             error: 'Você não tem permissão para atualizar este chamado',
           });
