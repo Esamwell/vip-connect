@@ -88,8 +88,8 @@ collect_info() {
     read -p "Digite a branch do repositório [main]: " GITHUB_BRANCH
     GITHUB_BRANCH=${GITHUB_BRANCH:-main}
 
-    read -p "Digite o domínio do frontend (ex: vip-connect.seudominio.com): " FRONTEND_DOMAIN
-    read -p "Digite o domínio do backend (ex: api.vip-connect.seudominio.com): " BACKEND_DOMAIN
+    read -p "Digite o domínio do frontend (ex: asibeneficios.autoshoppingitapoan.com.br): " FRONTEND_DOMAIN
+    read -p "Digite o domínio do backend (ex: api.asibeneficios.autoshoppingitapoan.com.br): " BACKEND_DOMAIN
 
     # Gerar senha aleatória para PostgreSQL se não fornecida
     read -sp "Digite a senha do PostgreSQL (ou pressione Enter para gerar automaticamente): " POSTGRES_PASSWORD
@@ -435,6 +435,9 @@ Repositório GitHub: $GITHUB_REPO
 Branch: $GITHUB_BRANCH
 Frontend Domain: $FRONTEND_DOMAIN
 Backend Domain: $BACKEND_DOMAIN
+
+📝 NOTA: Para configurar DNS no Cloudflare, consulte:
+   CLOUDFLARE_DNS_SETUP.md ou CLOUDFLARE_QUICK_SETUP.md
 PostgreSQL Password: $POSTGRES_PASSWORD
 JWT Secret: $JWT_SECRET
 

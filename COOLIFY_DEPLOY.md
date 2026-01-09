@@ -242,7 +242,7 @@ DATABASE_PASSWORD=sua_senha_postgres_aqui
 JWT_SECRET=seu_jwt_secret_super_seguro_aqui_altere_em_producao_minimo_32_caracteres
 
 # CORS (será configurado após criar o frontend)
-CORS_ORIGIN=https://vip-connect.seudominio.com
+CORS_ORIGIN=https://asibeneficios.autoshoppingitapoan.com.br
 
 # Ambiente
 NODE_ENV=production
@@ -260,7 +260,7 @@ MT_LEADS_API_TOKEN=seu_token_aqui
 
 ### 6. Configurar Domínio e SSL
 
-1. **Domínio**: Configure o domínio do backend (ex: `api.vip-connect.seudominio.com`)
+1. **Domínio**: Configure o domínio do backend (ex: `api.asibeneficios.autoshoppingitapoan.com.br`)
 2. **SSL**: Habilite SSL automático com Let's Encrypt
 3. **Porta**: Configure para usar porta 80/443
 
@@ -323,19 +323,19 @@ No Coolify, vá em **"Environment Variables"** e adicione:
 
 ```env
 # API Backend (URL do backend configurado anteriormente)
-VITE_API_URL=https://api.vip-connect.seudominio.com/api
+VITE_API_URL=https://api.asibeneficios.autoshoppingitapoan.com.br/api
 
 # Ambiente
 VITE_NODE_ENV=production
 ```
 
 **⚠️ IMPORTANTE**: 
-- Substitua `https://api.vip-connect.seudominio.com/api` pela URL real do seu backend
+- Substitua `https://api.asibeneficios.autoshoppingitapoan.com.br/api` pela URL real do seu backend
 - No Vite, todas as variáveis devem começar com `VITE_`
 
 ### 5. Configurar Domínio e SSL
 
-1. **Domínio**: Configure o domínio do frontend (ex: `vip-connect.seudominio.com`)
+1. **Domínio**: Configure o domínio do frontend (ex: `asibeneficios.autoshoppingitapoan.com.br`)
 2. **SSL**: Habilite SSL automático com Let's Encrypt
 3. **Porta**: Configure para usar porta 80/443
 
@@ -344,7 +344,7 @@ VITE_NODE_ENV=production
 Após configurar o frontend, atualize a variável `CORS_ORIGIN` do backend:
 
 ```env
-CORS_ORIGIN=https://vip-connect.seudominio.com
+CORS_ORIGIN=https://asibeneficios.autoshoppingitapoan.com.br
 ```
 
 ---
@@ -394,7 +394,7 @@ No Coolify, você pode:
 
 ```bash
 # Health check
-curl https://api.vip-connect.seudominio.com/health
+curl https://api.asibeneficios.autoshoppingitapoan.com.br/health
 
 # Deve retornar:
 # {"status":"ok","timestamp":"...","environment":"production"}
@@ -402,7 +402,7 @@ curl https://api.vip-connect.seudominio.com/health
 
 ### 2. Verificar Frontend
 
-1. Acesse `https://vip-connect.seudominio.com` no navegador
+1. Acesse `https://asibeneficios.autoshoppingitapoan.com.br` no navegador
 2. A aplicação deve carregar normalmente
 3. Teste o login com um usuário de teste
 
@@ -418,7 +418,7 @@ No backend, verifique os logs no Coolify. Deve aparecer:
 
 ```bash
 # Teste de login
-curl -X POST https://api.vip-connect.seudominio.com/api/auth/login \
+curl -X POST https://api.asibeneficios.autoshoppingitapoan.com.br/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"admin@autoshopping.com","password":"sua_senha"}'
 ```
@@ -529,6 +529,7 @@ Antes de considerar a instalação completa, verifique:
 - [Documentação do PostgreSQL](https://www.postgresql.org/docs/)
 - [Documentação do Vite](https://vitejs.dev/)
 - [Documentação do Express](https://expressjs.com/)
+- [`CLOUDFLARE_DNS_SETUP.md`](CLOUDFLARE_DNS_SETUP.md) - 🌐 Configuração de DNS no Cloudflare
 
 ---
 

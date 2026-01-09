@@ -413,6 +413,8 @@ Consulte [`database/README.md`](database/README.md) para:
 - [`COOLIFY_DEPLOY.md`](COOLIFY_DEPLOY.md) - 🚀 Guia completo de instalação no Coolify com deploy automático via GitHub
 - [`COOLIFY_QUICK_START.md`](COOLIFY_QUICK_START.md) - ⚡ Guia rápido para deploy no Coolify
 - [`scripts/README_INSTALL.md`](scripts/README_INSTALL.md) - 📋 Documentação do script de instalação automatizada
+- [`CLOUDFLARE_DNS_SETUP.md`](CLOUDFLARE_DNS_SETUP.md) - 🌐 **Configuração de DNS no Cloudflare para subdomínios**
+- [`CLOUDFLARE_QUICK_SETUP.md`](CLOUDFLARE_QUICK_SETUP.md) - ⚡ Configuração rápida DNS Cloudflare
 
 ### 📖 Desenvolvimento
 - [`database/README.md`](database/README.md) - Documentação completa do banco de dados

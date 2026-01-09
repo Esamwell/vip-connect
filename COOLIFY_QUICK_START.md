@@ -47,12 +47,12 @@ DATABASE_NAME=vip_connect
 DATABASE_USER=postgres
 DATABASE_PASSWORD=[sua_senha_postgres]
 JWT_SECRET=[gerar_secret_32+_caracteres]
-CORS_ORIGIN=https://vip-connect.seudominio.com
+CORS_ORIGIN=https://asibeneficios.autoshoppingitapoan.com.br
 NODE_ENV=production
 PORT=3000
 ```
 
-**Domínio:** `api.vip-connect.seudominio.com`
+**Domínio:** `api.asibeneficios.autoshoppingitapoan.com.br`
 
 ### 3. Frontend
 
@@ -66,11 +66,11 @@ PORT=3000
 
 **Variáveis de Ambiente:**
 ```env
-VITE_API_URL=https://api.vip-connect.seudominio.com/api
+VITE_API_URL=https://api.asibeneficios.autoshoppingitapoan.com.br/api
 VITE_NODE_ENV=production
 ```
 
-**Domínio:** `vip-connect.seudominio.com`
+**Domínio:** `asibeneficios.autoshoppingitapoan.com.br`
 
 ### 4. Deploy Automático
 
@@ -82,10 +82,10 @@ VITE_NODE_ENV=production
 
 ```bash
 # Backend
-curl https://api.vip-connect.seudominio.com/health
+curl https://api.asibeneficios.autoshoppingitapoan.com.br/health
 
 # Frontend
-# Acesse https://vip-connect.seudominio.com no navegador
+# Acesse https://asibeneficios.autoshoppingitapoan.com.br no navegador
 ```
 
 ## 🔧 Troubleshooting Rápido
