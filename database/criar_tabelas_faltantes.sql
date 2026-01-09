@@ -62,6 +62,9 @@ CREATE TABLE IF NOT EXISTS clientes_beneficios (
     alocado_por UUID REFERENCES users(id) ON DELETE SET NULL, -- Usuário que alocou o benefício
     data_alocacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     observacoes TEXT,
+    resgatado BOOLEAN DEFAULT false, -- Indica se o benefício foi resgatado/inutilizado
+    data_resgate TIMESTAMP NULL, -- Data e hora em que o benefício foi resgatado
+    resgatado_por UUID REFERENCES users(id) ON DELETE SET NULL, -- Usuário que marcou como resgatado
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -109,6 +112,42 @@ CREATE INDEX IF NOT EXISTS idx_clientes_beneficios_beneficio_loja_id ON clientes
 CREATE INDEX IF NOT EXISTS idx_clientes_beneficios_tipo ON clientes_beneficios(tipo);
 CREATE INDEX IF NOT EXISTS idx_clientes_beneficios_ativo ON clientes_beneficios(ativo);
 CREATE INDEX IF NOT EXISTS idx_clientes_beneficios_data_alocacao ON clientes_beneficios(data_alocacao);
+CREATE INDEX IF NOT EXISTS idx_clientes_beneficios_resgatado ON clientes_beneficios(resgatado);
+CREATE INDEX IF NOT EXISTS idx_clientes_beneficios_data_resgate ON clientes_beneficios(data_resgate);
+
+-- Adicionar colunas de resgate se a tabela já existir (para compatibilidade)
+DO $$ 
+BEGIN
+    -- Adicionar coluna resgatado se não existir
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'clientes_beneficios' 
+        AND column_name = 'resgatado'
+    ) THEN
+        ALTER TABLE clientes_beneficios 
+        ADD COLUMN resgatado BOOLEAN DEFAULT false;
+    END IF;
+
+    -- Adicionar coluna data_resgate se não existir
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'clientes_beneficios' 
+        AND column_name = 'data_resgate'
+    ) THEN
+        ALTER TABLE clientes_beneficios 
+        ADD COLUMN data_resgate TIMESTAMP NULL;
+    END IF;
+
+    -- Adicionar coluna resgatado_por se não existir
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'clientes_beneficios' 
+        AND column_name = 'resgatado_por'
+    ) THEN
+        ALTER TABLE clientes_beneficios 
+        ADD COLUMN resgatado_por UUID REFERENCES users(id) ON DELETE SET NULL;
+    END IF;
+END $$;
 
 -- Trigger para atualizar updated_at automaticamente
 DROP TRIGGER IF EXISTS update_clientes_beneficios_updated_at ON clientes_beneficios;
@@ -122,6 +161,9 @@ COMMENT ON TABLE clientes_beneficios IS 'Tabela de relacionamento para alocar be
 
 COMMENT ON COLUMN clientes_beneficios.ativo IS 'Permite desativar temporariamente um benefício alocado sem precisar remover o registro';
 COMMENT ON COLUMN clientes_beneficios.alocado_por IS 'Usuário (admin) que alocou o benefício ao cliente';
+COMMENT ON COLUMN clientes_beneficios.resgatado IS 'Indica se o benefício foi resgatado/inutilizado pelo cliente. Quando true, o benefício não pode mais ser usado.';
+COMMENT ON COLUMN clientes_beneficios.data_resgate IS 'Data e hora em que o benefício foi resgatado/inutilizado';
+COMMENT ON COLUMN clientes_beneficios.resgatado_por IS 'Usuário (admin/lojista) que marcou o benefício como resgatado';
 
 -- =====================================================
 -- VERIFICAÇÃO FINAL
