@@ -1124,8 +1124,9 @@ router.get(
  * Busca cliente VIP por ID ou QR Code (rota protegida para dashboard)
  */
 router.get('/:id', authenticate, async (req, res) => {
+  const { id } = req.params;
+  
   try {
-    const { id } = req.params;
     console.log('Buscando cliente VIP com ID:', id);
     console.log('Usuário autenticado:', req.user?.role);
 
