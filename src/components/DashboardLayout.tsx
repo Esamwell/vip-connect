@@ -20,6 +20,8 @@ import {
   Search,
   Moon,
   Sun,
+  Clock,
+  CheckCircle2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,6 +38,9 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { useTheme } from '@/hooks/use-theme';
+import { notificacoesService, Notificacao } from '@/services/notificacoes.service';
+import { formatDistanceToNow } from 'date-fns';
+import { ptBR } from 'date-fns/locale/pt-BR';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -51,6 +56,9 @@ interface MenuItemType {
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [notificacoes, setNotificacoes] = useState<Notificacao[]>([]);
+  const [loadingNotificacoes, setLoadingNotificacoes] = useState(false);
+  const [notificacoesAbertas, setNotificacoesAbertas] = useState(false);
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
@@ -60,6 +68,52 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   useEffect(() => {
     setSidebarOpen(false);
   }, [location.pathname]);
+
+  // Carregar notificações
+  useEffect(() => {
+    loadNotificacoes();
+    // Recarregar notificações a cada 30 segundos
+    const interval = setInterval(loadNotificacoes, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const loadNotificacoes = async () => {
+    try {
+      setLoadingNotificacoes(true);
+      const data = await notificacoesService.listar();
+      setNotificacoes(data);
+    } catch (error) {
+      console.error('Erro ao carregar notificações:', error);
+    } finally {
+      setLoadingNotificacoes(false);
+    }
+  };
+
+  const handleNotificacaoClick = async (notificacao: Notificacao) => {
+    // Marcar como lida
+    try {
+      await notificacoesService.marcarComoLida(notificacao.id);
+      // Remover da lista ou atualizar estado
+      setNotificacoes(prev => prev.filter(n => n.id !== notificacao.id));
+    } catch (error) {
+      console.error('Erro ao marcar notificação como lida:', error);
+    }
+
+    // Navegar baseado no tipo
+    if (notificacao.tipo === 'chamado_aberto' || notificacao.tipo === 'chamado_resolvido') {
+      navigate('/dashboard/chamados');
+    } else if (notificacao.tipo === 'vencimento_proximo') {
+      navigate('/dashboard/clientes');
+    }
+  };
+
+  // Notificações não lidas são aquelas criadas recentemente (últimas 7 dias) e não enviadas
+  const notificacoesNaoLidas = notificacoes.filter(n => {
+    const dataCriacao = new Date(n.created_at);
+    const seteDiasAtras = new Date();
+    seteDiasAtras.setDate(seteDiasAtras.getDate() - 7);
+    return dataCriacao >= seteDiasAtras && !n.enviada;
+  }).length;
 
   const getMenuItems = (): MenuItemType[] => {
     const role = user?.role;
@@ -428,10 +482,85 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon" className="relative">
-                <Bell className="w-5 h-5" />
-                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-primary" />
-              </Button>
+              <DropdownMenu open={notificacoesAbertas} onOpenChange={setNotificacoesAbertas}>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="relative">
+                    <Bell className="w-5 h-5" />
+                    {notificacoesNaoLidas > 0 && (
+                      <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-primary animate-pulse" />
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-80">
+                  <DropdownMenuLabel className="flex items-center justify-between">
+                    <span>Notificações</span>
+                    {notificacoesNaoLidas > 0 && (
+                      <span className="text-xs text-muted-foreground">
+                        {notificacoesNaoLidas} nova{notificacoesNaoLidas > 1 ? 's' : ''}
+                      </span>
+                    )}
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <ScrollArea className="h-[300px]">
+                    {loadingNotificacoes ? (
+                      <div className="flex items-center justify-center p-4">
+                        <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                      </div>
+                    ) : notificacoes.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center p-8 text-center">
+                        <Bell className="w-12 h-12 text-muted-foreground mb-2" />
+                        <p className="text-sm text-muted-foreground">
+                          Nenhuma notificação
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="py-1">
+                        {notificacoes.map((notificacao) => (
+                          <DropdownMenuItem
+                            key={notificacao.id}
+                            className="flex flex-col items-start p-3 cursor-pointer hover:bg-accent"
+                            onClick={() => handleNotificacaoClick(notificacao)}
+                          >
+                            <div className="flex items-start justify-between w-full gap-2">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium line-clamp-1">
+                                  {notificacao.titulo}
+                                </p>
+                                <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
+                                  {notificacao.mensagem}
+                                </p>
+                                <div className="flex items-center gap-2 mt-2">
+                                  <Clock className="w-3 h-3 text-muted-foreground" />
+                                  <span className="text-xs text-muted-foreground">
+                                    {formatDistanceToNow(new Date(notificacao.created_at), {
+                                      addSuffix: true,
+                                      locale: ptBR,
+                                    })}
+                                  </span>
+                                </div>
+                              </div>
+                              {!notificacao.enviada && (
+                                <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-1" />
+                              )}
+                            </div>
+                          </DropdownMenuItem>
+                        ))}
+                      </div>
+                    )}
+                  </ScrollArea>
+                  {notificacoes.length > 0 && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="text-center justify-center text-sm text-muted-foreground"
+                        onClick={() => navigate('/dashboard')}
+                      >
+                        Ver todas
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button variant="ghost" size="icon" onClick={toggleTheme} title={theme === 'light' ? 'Ativar modo escuro' : 'Ativar modo claro'}>
                 {theme === 'light' ? (
                   <Moon className="w-5 h-5" />

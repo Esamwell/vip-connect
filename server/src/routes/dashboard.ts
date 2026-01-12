@@ -510,5 +510,89 @@ router.get(
   }
 );
 
+/**
+ * GET /api/dashboard/notificacoes
+ * Retorna notificações do usuário
+ */
+router.get(
+  '/notificacoes',
+  authenticate,
+  authorizeLojista,
+  async (req, res) => {
+    try {
+      const userRole = req.user!.role;
+      const userId = req.user!.userId;
+      
+      // Buscar notificações baseadas no role
+      let query = `
+        SELECT 
+          n.id,
+          n.tipo,
+          n.titulo,
+          n.mensagem,
+          n.created_at,
+          n.enviada,
+          n.data_envio,
+          cv.nome as cliente_nome,
+          l.nome as loja_nome
+        FROM notificacoes n
+        LEFT JOIN clientes_vip cv ON n.cliente_vip_id = cv.id
+        LEFT JOIN lojas l ON n.loja_id = l.id
+        WHERE 1=1
+      `;
+      const params: any[] = [];
+      let paramCount = 0;
+
+      // Se for lojista, mostrar apenas notificações da sua loja
+      if (userRole === 'lojista') {
+        const lojaResult = await pool.query(
+          'SELECT id FROM lojas WHERE user_id = $1 AND ativo = true',
+          [userId]
+        );
+        if (lojaResult.rows.length > 0) {
+          paramCount++;
+          query += ` AND (n.loja_id = $${paramCount} OR n.loja_id IS NULL)`;
+          params.push(lojaResult.rows[0].id);
+        } else {
+          // Lojista sem loja não vê notificações
+          return res.json([]);
+        }
+      }
+
+      query += ` ORDER BY n.created_at DESC LIMIT 20`;
+      
+      const result = await pool.query(query, params);
+      
+      res.json(result.rows);
+    } catch (error: any) {
+      console.error('Erro ao buscar notificações:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  }
+);
+
+/**
+ * PATCH /api/dashboard/notificacoes/:id/marcar-lida
+ * Marca uma notificação como lida
+ */
+router.patch(
+  '/notificacoes/:id/marcar-lida',
+  authenticate,
+  authorizeLojista,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Atualizar notificação (por enquanto apenas retornar sucesso)
+      // Futuramente pode adicionar uma coluna "lida" na tabela
+      
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Erro ao marcar notificação como lida:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  }
+);
+
 export default router;
 
