@@ -34,6 +34,8 @@ const Login = () => {
         navigate('/dashboard');
       } else if (role === 'parceiro') {
         navigate('/parceiro/dashboard');
+      } else if (role === 'vendedor') {
+        navigate('/vendedor/dashboard');
       } else {
         navigate('/meu-cartao');
       }
