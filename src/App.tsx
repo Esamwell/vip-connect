@@ -163,7 +163,7 @@ const App = () => (
             <Route
               path="/dashboard/ranking"
               element={
-                <ProtectedRoute allowedRoles={['admin_mt', 'admin_shopping', 'lojista']}>
+                <ProtectedRoute allowedRoles={['admin_mt', 'admin_shopping', 'lojista', 'vendedor']}>
                   <DashboardLayout>
                     <Ranking />
                   </DashboardLayout>

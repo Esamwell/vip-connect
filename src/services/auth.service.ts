@@ -1,5 +1,7 @@
 import { api } from './api';
 
+export type UserRole = 'admin_mt' | 'admin_shopping' | 'lojista' | 'parceiro' | 'cliente_vip' | 'vendedor';
+
 export interface LoginCredentials {
   email: string;
   password: string;
@@ -9,7 +11,7 @@ export interface User {
   id: string;
   email: string;
   nome: string;
-  role: 'admin_mt' | 'admin_shopping' | 'lojista' | 'parceiro' | 'cliente_vip';
+  role: UserRole;
   whatsapp?: string;
 }
 
