@@ -12,11 +12,8 @@ build
 out
 
 # Desenvolvimento
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env*
+*.local
 
 # IDE
 .vscode
@@ -42,4 +39,11 @@ coverage
 .DS_Store
 Thumbs.db
 *.log
+
+# Coolify específicos
+.nixpacks
+template
+database
+scripts
+server
 

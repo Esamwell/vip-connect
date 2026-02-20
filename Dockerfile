@@ -5,9 +5,14 @@ WORKDIR /app
 
 # Copiar arquivos de dependências
 COPY package*.json ./
+COPY .npmrc ./
 
-# Instalar dependências
-RUN npm ci
+# Configurar npm para usar menos memória
+ENV NODE_OPTIONS="--max-old-space-size=2048"
+ENV npm_config_cache=/tmp/.npm
+
+# Instalar dependências com otimizações
+RUN npm ci --prefer-offline --no-audit --no-fund
 
 # Copiar código fonte
 COPY . .
