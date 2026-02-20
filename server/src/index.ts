@@ -14,6 +14,10 @@ import renovacaoRoutes from './routes/renovacao';
 import lojasRoutes from './routes/lojas';
 import parceirosRoutes from './routes/parceiros';
 import dashboardRoutes from './routes/dashboard';
+import vendedoresRoutes from './routes/vendedores';
+import vouchersVendedorRoutes from './routes/vouchers-vendedor';
+import rankingVendedoresRoutes from './routes/ranking-vendedores';
+import premiacoesRoutes from './routes/premiacoes';
 
 // Carregar variáveis de ambiente
 dotenv.config();
@@ -50,6 +54,10 @@ app.use('/api/renovacao', renovacaoRoutes);
 app.use('/api/lojas', lojasRoutes);
 app.use('/api/parceiros', parceirosRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/vendedores', vendedoresRoutes);
+app.use('/api/vouchers-vendedor', vouchersVendedorRoutes);
+app.use('/api/ranking-vendedores', rankingVendedoresRoutes);
+app.use('/api/premiacoes', premiacoesRoutes);
 
 // Rota 404
 app.use((req, res) => {

@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import VendedorDashboardLayout from "@/components/VendedorDashboardLayout";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import ClientCard from "./pages/ClientCard";
@@ -26,6 +27,8 @@ import { ParceiroDashboardLayout } from "./components/ParceiroDashboardLayout";
 import ParceiroClientes from "./pages/parceiro/Clientes";
 import ParceiroBeneficios from "./pages/parceiro/Beneficios";
 import ParceiroConfiguracoes from "./pages/parceiro/Configuracoes";
+import VendedorDashboard from "./pages/vendedor/Dashboard";
+import VendedorVouchers from "./pages/vendedor/Vouchers";
 
 const queryClient = new QueryClient();
 
@@ -80,6 +83,28 @@ const App = () => (
                   <ParceiroDashboardLayout>
                     <ParceiroConfiguracoes />
                   </ParceiroDashboardLayout>
+                </ProtectedRoute>
+              }
+            />
+            
+            {/* Vendedor Dashboard Routes */}
+            <Route
+              path="/vendedor/dashboard"
+              element={
+                <ProtectedRoute allowedRoles={['vendedor']}>
+                  <VendedorDashboardLayout>
+                    <VendedorDashboard />
+                  </VendedorDashboardLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/vendedor/dashboard/vouchers"
+              element={
+                <ProtectedRoute allowedRoles={['vendedor']}>
+                  <VendedorDashboardLayout>
+                    <VendedorVouchers />
+                  </VendedorDashboardLayout>
                 </ProtectedRoute>
               }
             />
