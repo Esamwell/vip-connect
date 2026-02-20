@@ -1126,10 +1126,19 @@ router.get(
  */
 router.get('/meus-clientes', authenticate, authorize('vendedor'), async (req, res) => {
   try {
+    console.log('[MEUS-CLIENTES] Rota /meus-clientes atingida!');
+    console.log('[MEUS-CLIENTES] user_id do JWT:', req.user!.userId);
+    console.log('[MEUS-CLIENTES] role:', req.user!.role);
+
     const vendedorResult = await pool.query(
       'SELECT id, loja_id FROM vendedores WHERE user_id = $1 AND ativo = true',
       [req.user!.userId]
     );
+
+    console.log('[MEUS-CLIENTES] Vendedor encontrado:', vendedorResult.rows.length, 'registros');
+    if (vendedorResult.rows.length > 0) {
+      console.log('[MEUS-CLIENTES] Vendedor ID:', vendedorResult.rows[0].id, 'Loja ID:', vendedorResult.rows[0].loja_id);
+    }
 
     if (vendedorResult.rows.length === 0) {
       return res.status(403).json({ error: 'Vendedor não encontrado ou inativo' });
@@ -1144,17 +1153,31 @@ router.get('/meus-clientes', authenticate, authorize('vendedor'), async (req, re
       WHERE table_name = 'clientes_vip' AND column_name = 'vendedor_id'
     `);
 
+    console.log('[MEUS-CLIENTES] Coluna vendedor_id existe:', colCheck.rows.length > 0);
+
     if (colCheck.rows.length === 0) {
-      // Coluna não existe ainda - tentar criar automaticamente
       try {
         await pool.query('ALTER TABLE clientes_vip ADD COLUMN IF NOT EXISTS vendedor_id UUID REFERENCES vendedores(id) ON DELETE SET NULL');
         await pool.query('CREATE INDEX IF NOT EXISTS idx_clientes_vip_vendedor_id ON clientes_vip(vendedor_id)');
-        console.log('Coluna vendedor_id criada automaticamente na tabela clientes_vip');
+        console.log('[MEUS-CLIENTES] Coluna vendedor_id criada automaticamente');
       } catch (alterError: any) {
-        console.error('Erro ao criar coluna vendedor_id:', alterError.message);
-        return res.json([]); // Retorna lista vazia se não conseguir criar
+        console.error('[MEUS-CLIENTES] Erro ao criar coluna vendedor_id:', alterError.message);
+        return res.json([]);
       }
     }
+
+    // Debug: verificar quantos clientes têm vendedor_id preenchido
+    const debugCount = await pool.query(
+      'SELECT COUNT(*) as total, COUNT(vendedor_id) as com_vendedor FROM clientes_vip'
+    );
+    console.log('[MEUS-CLIENTES] Total clientes:', debugCount.rows[0].total, '| Com vendedor_id:', debugCount.rows[0].com_vendedor);
+
+    // Debug: verificar clientes com este vendedor_id específico
+    const debugVendedor = await pool.query(
+      'SELECT COUNT(*) as total FROM clientes_vip WHERE vendedor_id = $1',
+      [vendedor.id]
+    );
+    console.log('[MEUS-CLIENTES] Clientes com vendedor_id =', vendedor.id, ':', debugVendedor.rows[0].total);
 
     let query = `
       SELECT c.*, l.nome as loja_nome
@@ -1180,9 +1203,11 @@ router.get('/meus-clientes', authenticate, authorize('vendedor'), async (req, re
     query += ' ORDER BY c.created_at DESC';
 
     const result = await pool.query(query, params);
+    console.log('[MEUS-CLIENTES] Resultado final:', result.rows.length, 'clientes encontrados');
     res.json(result.rows);
   } catch (error: any) {
-    console.error('Erro ao listar clientes do vendedor:', error);
+    console.error('[MEUS-CLIENTES] ERRO:', error.message);
+    console.error('[MEUS-CLIENTES] Stack:', error.stack);
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
