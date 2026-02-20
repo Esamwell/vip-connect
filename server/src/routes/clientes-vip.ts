@@ -1120,6 +1120,74 @@ router.get(
 );
 
 /**
+ * GET /api/clientes-vip/meus-clientes
+ * Lista clientes VIP vinculados ao vendedor logado
+ * IMPORTANTE: Esta rota deve vir ANTES de /:id para evitar conflitos
+ */
+router.get('/meus-clientes', authenticate, authorize('vendedor'), async (req, res) => {
+  try {
+    const vendedorResult = await pool.query(
+      'SELECT id, loja_id FROM vendedores WHERE user_id = $1 AND ativo = true',
+      [req.user!.userId]
+    );
+
+    if (vendedorResult.rows.length === 0) {
+      return res.status(403).json({ error: 'Vendedor não encontrado ou inativo' });
+    }
+
+    const vendedor = vendedorResult.rows[0];
+    const { status, search } = req.query;
+
+    // Verificar se a coluna vendedor_id existe na tabela clientes_vip
+    const colCheck = await pool.query(`
+      SELECT column_name FROM information_schema.columns 
+      WHERE table_name = 'clientes_vip' AND column_name = 'vendedor_id'
+    `);
+
+    if (colCheck.rows.length === 0) {
+      // Coluna não existe ainda - tentar criar automaticamente
+      try {
+        await pool.query('ALTER TABLE clientes_vip ADD COLUMN IF NOT EXISTS vendedor_id UUID REFERENCES vendedores(id) ON DELETE SET NULL');
+        await pool.query('CREATE INDEX IF NOT EXISTS idx_clientes_vip_vendedor_id ON clientes_vip(vendedor_id)');
+        console.log('Coluna vendedor_id criada automaticamente na tabela clientes_vip');
+      } catch (alterError: any) {
+        console.error('Erro ao criar coluna vendedor_id:', alterError.message);
+        return res.json([]); // Retorna lista vazia se não conseguir criar
+      }
+    }
+
+    let query = `
+      SELECT c.*, l.nome as loja_nome
+      FROM clientes_vip c
+      JOIN lojas l ON c.loja_id = l.id
+      WHERE c.vendedor_id = $1
+    `;
+    const params: any[] = [vendedor.id];
+    let paramIndex = 2;
+
+    if (status && status !== 'todos') {
+      query += ` AND c.status = $${paramIndex}`;
+      params.push(status);
+      paramIndex++;
+    }
+
+    if (search) {
+      query += ` AND (c.nome ILIKE $${paramIndex} OR c.whatsapp ILIKE $${paramIndex} OR c.email ILIKE $${paramIndex})`;
+      params.push(`%${search}%`);
+      paramIndex++;
+    }
+
+    query += ' ORDER BY c.created_at DESC';
+
+    const result = await pool.query(query, params);
+    res.json(result.rows);
+  } catch (error: any) {
+    console.error('Erro ao listar clientes do vendedor:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+/**
  * GET /api/clientes-vip/:id
  * Busca cliente VIP por ID ou QR Code (rota protegida para dashboard)
  */
@@ -1232,55 +1300,6 @@ router.get('/:id', authenticate, async (req, res) => {
 });
 
 /**
- * GET /api/clientes-vip/meus-clientes
- * Lista clientes VIP vinculados ao vendedor logado
- */
-router.get('/meus-clientes', authenticate, authorize('vendedor'), async (req, res) => {
-  try {
-    const vendedorResult = await pool.query(
-      'SELECT id, loja_id FROM vendedores WHERE user_id = $1 AND ativo = true',
-      [req.user!.userId]
-    );
-
-    if (vendedorResult.rows.length === 0) {
-      return res.status(403).json({ error: 'Vendedor não encontrado ou inativo' });
-    }
-
-    const vendedor = vendedorResult.rows[0];
-    const { status, search } = req.query;
-
-    let query = `
-      SELECT c.*, l.nome as loja_nome
-      FROM clientes_vip c
-      JOIN lojas l ON c.loja_id = l.id
-      WHERE c.vendedor_id = $1
-    `;
-    const params: any[] = [vendedor.id];
-    let paramIndex = 2;
-
-    if (status && status !== 'todos') {
-      query += ` AND c.status = $${paramIndex}`;
-      params.push(status);
-      paramIndex++;
-    }
-
-    if (search) {
-      query += ` AND (c.nome ILIKE $${paramIndex} OR c.whatsapp ILIKE $${paramIndex} OR c.email ILIKE $${paramIndex})`;
-      params.push(`%${search}%`);
-      paramIndex++;
-    }
-
-    query += ' ORDER BY c.created_at DESC';
-
-    const result = await pool.query(query, params);
-    res.json(result.rows);
-  } catch (error: any) {
-    console.error('Erro ao listar clientes do vendedor:', error);
-    res.status(500).json({ error: 'Erro interno do servidor' });
-  }
-});
-
-/**
  * POST /api/clientes-vip
  * Cria novo cliente VIP (ativação automática após venda)
  */
@@ -1381,6 +1400,9 @@ router.post(
       // Formatar para YYYY-MM-DD para PostgreSQL
       const dataVendaFormatada = dataVenda.toISOString().split('T')[0];
       const dataValidadeFormatada = dataValidade.toISOString().split('T')[0];
+
+      // Garantir que a coluna vendedor_id existe
+      await pool.query('ALTER TABLE clientes_vip ADD COLUMN IF NOT EXISTS vendedor_id UUID REFERENCES vendedores(id) ON DELETE SET NULL').catch(() => {});
 
       // Criar cliente VIP
       console.log('Criando cliente VIP com dados:', {
