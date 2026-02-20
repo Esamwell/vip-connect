@@ -1,20 +1,20 @@
-import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { 
   TrendingUp, 
-  Users, 
   Star, 
   Gift, 
   Award,
   Target,
   Calendar,
-  DollarSign
+  DollarSign,
+  RefreshCw,
+  AlertCircle
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 
 interface VendedorStats {
   total_vendas: number;
@@ -32,9 +32,10 @@ interface VendedorStats {
 
 const VendedorDashboard = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   // Buscar estatísticas do vendedor
-  const { data: stats, isLoading, error } = useQuery<VendedorStats>({
+  const { data: stats, isLoading, error, refetch } = useQuery<VendedorStats>({
     queryKey: ["vendedor-stats"],
     queryFn: async () => {
       const response = await fetch("/api/vendedores/minhas-estatisticas", {
@@ -49,7 +50,26 @@ const VendedorDashboard = () => {
       
       return response.json();
     },
+    retry: 2,
+    staleTime: 30000,
   });
+
+  // Valores padrão quando API falha
+  const defaultStats: VendedorStats = {
+    total_vendas: 0,
+    valor_total_vendas: 0,
+    total_avaliacoes: 0,
+    nota_media: 0,
+    posicao_ranking_loja: 0,
+    posicao_ranking_geral: 0,
+    vouchers_disponiveis: 0,
+    vouchers_resgatados: 0,
+    premiacoes_recebidas: 0,
+    meta_vendas_percentual: 0,
+    meta_valor_percentual: 0,
+  };
+
+  const displayStats = stats || defaultStats;
 
   if (isLoading) {
     return (
@@ -65,16 +85,23 @@ const VendedorDashboard = () => {
     );
   }
 
-  if (error) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-destructive">Erro ao carregar dados do dashboard</p>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
+      {/* Error Banner */}
+      {error && (
+        <div className="flex items-center gap-3 p-4 rounded-lg border border-destructive/50 bg-destructive/10">
+          <AlertCircle className="h-5 w-5 text-destructive shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-destructive">Não foi possível carregar os dados atualizados</p>
+            <p className="text-xs text-muted-foreground">Exibindo valores padrão. Verifique sua conexão.</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
+            <RefreshCw className="h-4 w-4 mr-1" />
+            Tentar novamente
+          </Button>
+        </div>
+      )}
+
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold">Dashboard Vendedor</h1>
@@ -87,13 +114,13 @@ const VendedorDashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Vendas this Month</CardTitle>
+            <CardTitle className="text-sm font-medium">Vendas do Mês</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.total_vendas || 0}</div>
+            <div className="text-2xl font-bold">{displayStats.total_vendas}</div>
             <p className="text-xs text-muted-foreground">
-              R$ {stats?.valor_total_vendas?.toFixed(2) || "0,00"}
+              R$ {displayStats.valor_total_vendas?.toFixed(2) || "0,00"}
             </p>
           </CardContent>
         </Card>
@@ -105,10 +132,10 @@ const VendedorDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {stats?.nota_media?.toFixed(1) || "0,0"}
+              {displayStats.nota_media?.toFixed(1) || "0,0"}
             </div>
             <p className="text-xs text-muted-foreground">
-              {stats?.total_avaliacoes || 0} avaliações
+              {displayStats.total_avaliacoes} avaliações
             </p>
           </CardContent>
         </Card>
@@ -119,9 +146,9 @@ const VendedorDashboard = () => {
             <Award className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">#{stats?.posicao_ranking_loja || "-"}</div>
+            <div className="text-2xl font-bold">#{displayStats.posicao_ranking_loja || "-"}</div>
             <p className="text-xs text-muted-foreground">
-              Geral: #{stats?.posicao_ranking_geral || "-"}
+              Geral: #{displayStats.posicao_ranking_geral || "-"}
             </p>
           </CardContent>
         </Card>
@@ -132,9 +159,9 @@ const VendedorDashboard = () => {
             <Gift className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.vouchers_resgatados || 0}</div>
+            <div className="text-2xl font-bold">{displayStats.vouchers_resgatados}</div>
             <p className="text-xs text-muted-foreground">
-              {stats?.vouchers_disponiveis || 0} disponíveis
+              {displayStats.vouchers_disponiveis} disponíveis
             </p>
           </CardContent>
         </Card>
@@ -154,12 +181,12 @@ const VendedorDashboard = () => {
             <div>
               <div className="flex justify-between text-sm mb-2">
                 <span>Progresso</span>
-                <span>{stats?.meta_vendas_percentual || 0}%</span>
+                <span>{displayStats.meta_vendas_percentual}%</span>
               </div>
-              <Progress value={stats?.meta_vendas_percentual || 0} className="h-2" />
+              <Progress value={displayStats.meta_vendas_percentual} className="h-2" />
             </div>
             <div className="flex justify-between text-sm text-muted-foreground">
-              <span>Vendas realizadas: {stats?.total_vendas || 0}</span>
+              <span>Vendas realizadas: {displayStats.total_vendas}</span>
               <span>Meta: 100</span>
             </div>
           </CardContent>
@@ -177,12 +204,12 @@ const VendedorDashboard = () => {
             <div>
               <div className="flex justify-between text-sm mb-2">
                 <span>Progresso</span>
-                <span>{stats?.meta_valor_percentual || 0}%</span>
+                <span>{displayStats.meta_valor_percentual}%</span>
               </div>
-              <Progress value={stats?.meta_valor_percentual || 0} className="h-2" />
+              <Progress value={displayStats.meta_valor_percentual} className="h-2" />
             </div>
             <div className="flex justify-between text-sm text-muted-foreground">
-              <span>Faturado: R$ {stats?.valor_total_vendas?.toFixed(2) || "0,00"}</span>
+              <span>Faturado: R$ {displayStats.valor_total_vendas?.toFixed(2) || "0,00"}</span>
               <span>Meta: R$ 50.000,00</span>
             </div>
           </CardContent>
@@ -196,15 +223,15 @@ const VendedorDashboard = () => {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Button className="h-20 flex-col gap-2" variant="outline">
+            <Button className="h-20 flex-col gap-2" variant="outline" onClick={() => navigate("/vendedor/dashboard/vouchers")}>
               <Gift className="h-6 w-6" />
               <span>Ver Vouchers</span>
             </Button>
-            <Button className="h-20 flex-col gap-2" variant="outline">
+            <Button className="h-20 flex-col gap-2" variant="outline" onClick={() => navigate("/vendedor/dashboard/ranking")}>
               <TrendingUp className="h-6 w-6" />
               <span>Ver Ranking</span>
             </Button>
-            <Button className="h-20 flex-col gap-2" variant="outline">
+            <Button className="h-20 flex-col gap-2" variant="outline" onClick={() => navigate("/vendedor/dashboard/premiacoes")}>
               <Award className="h-6 w-6" />
               <span>Minhas Premiações</span>
             </Button>

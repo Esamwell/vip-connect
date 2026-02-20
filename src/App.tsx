@@ -31,6 +31,11 @@ import ParceiroConfiguracoes from "./pages/parceiro/Configuracoes";
 import VendedorDashboard from "./pages/vendedor/Dashboard";
 import VendedorVouchers from "./pages/vendedor/Vouchers";
 import VendedorPerfil from "./pages/vendedor/Perfil";
+import VendedorRanking from "./pages/vendedor/Ranking";
+import VendedorAvaliacoes from "./pages/vendedor/Avaliacoes";
+import VendedorPremiacoes from "./pages/vendedor/Premiacoes";
+import VendedorMetas from "./pages/vendedor/Metas";
+import VendedorConfiguracoes from "./pages/vendedor/Configuracoes";
 
 const queryClient = new QueryClient();
 
@@ -117,6 +122,56 @@ const App = () => (
                 <ProtectedRoute allowedRoles={['vendedor']}>
                   <VendedorDashboardLayout>
                     <VendedorPerfil />
+                  </VendedorDashboardLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/vendedor/dashboard/ranking"
+              element={
+                <ProtectedRoute allowedRoles={['vendedor']}>
+                  <VendedorDashboardLayout>
+                    <VendedorRanking />
+                  </VendedorDashboardLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/vendedor/dashboard/avaliacoes"
+              element={
+                <ProtectedRoute allowedRoles={['vendedor']}>
+                  <VendedorDashboardLayout>
+                    <VendedorAvaliacoes />
+                  </VendedorDashboardLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/vendedor/dashboard/premiacoes"
+              element={
+                <ProtectedRoute allowedRoles={['vendedor']}>
+                  <VendedorDashboardLayout>
+                    <VendedorPremiacoes />
+                  </VendedorDashboardLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/vendedor/dashboard/metas"
+              element={
+                <ProtectedRoute allowedRoles={['vendedor']}>
+                  <VendedorDashboardLayout>
+                    <VendedorMetas />
+                  </VendedorDashboardLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/vendedor/dashboard/configuracoes"
+              element={
+                <ProtectedRoute allowedRoles={['vendedor']}>
+                  <VendedorDashboardLayout>
+                    <VendedorConfiguracoes />
                   </VendedorDashboardLayout>
                 </ProtectedRoute>
               }
