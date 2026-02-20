@@ -59,7 +59,7 @@ const VendedorVouchers = () => {
     queryFn: async () => {
       const response = await fetch("/api/vouchers-vendedor", {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
         },
       });
       
@@ -77,7 +77,7 @@ const VendedorVouchers = () => {
     queryFn: async () => {
       const response = await fetch("/api/vouchers-vendedor/resgates/meus", {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
         },
       });
       
@@ -96,7 +96,7 @@ const VendedorVouchers = () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
         },
         body: JSON.stringify({
           observacoes: resgateObservacoes,
@@ -174,7 +174,7 @@ const VendedorVouchers = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[...Array(6)].map((_, i) => (
             <Card key={i} className="animate-pulse">
-              <div className="h-48 bg-gray-200 rounded"></div>
+              <div className="h-48 bg-muted rounded"></div>
             </Card>
           ))}
         </div>
@@ -186,8 +186,8 @@ const VendedorVouchers = () => {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Meus Vouchers</h1>
-        <p className="text-gray-600 mt-2">
+        <h1 className="text-3xl font-bold">Meus Vouchers</h1>
+        <p className="text-muted-foreground mt-2">
           Gerencie seus vouchers de benefícios e premiações
         </p>
       </div>
@@ -264,7 +264,7 @@ const VendedorVouchers = () => {
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1">
               <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Buscar vouchers..."
                   value={searchTerm}
@@ -304,7 +304,7 @@ const VendedorVouchers = () => {
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <CardTitle className="text-lg">{voucher.nome}</CardTitle>
-                    <p className="text-sm text-gray-600 mt-1">{voucher.descricao}</p>
+                    <p className="text-sm text-muted-foreground mt-1">{voucher.descricao}</p>
                   </div>
                   <Badge className={statusInfo.color}>
                     <StatusIcon className="h-3 w-3 mr-1" />
@@ -314,19 +314,19 @@ const VendedorVouchers = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Código:</span>
+                  <span className="text-sm text-muted-foreground">Código:</span>
                   <span className="font-mono text-sm font-medium">{voucher.codigo}</span>
                 </div>
                 
                 {voucher.valor && (
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Valor:</span>
+                    <span className="text-sm text-muted-foreground">Valor:</span>
                     <span className="font-medium">R$ {voucher.valor.toFixed(2)}</span>
                   </div>
                 )}
 
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Disponibilidade:</span>
+                  <span className="text-sm text-muted-foreground">Disponibilidade:</span>
                   <span className="text-sm">
                     {voucher.quantidade_disponivel - voucher.quantidade_utilizada} / {voucher.quantidade_disponivel}
                   </span>
@@ -334,8 +334,8 @@ const VendedorVouchers = () => {
 
                 {voucher.valido_ate && (
                   <div className="flex items-center gap-2 text-sm">
-                    <Calendar className="h-4 w-4 text-gray-400" />
-                    <span className="text-gray-600">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-muted-foreground">
                       Válido até: {new Date(voucher.valido_ate).toLocaleDateString('pt-BR')}
                     </span>
                   </div>
@@ -359,7 +359,7 @@ const VendedorVouchers = () => {
                       <div className="space-y-4">
                         <div>
                           <p className="font-medium">{voucher.nome}</p>
-                          <p className="text-sm text-gray-600">{voucher.descricao}</p>
+                          <p className="text-sm text-muted-foreground">{voucher.descricao}</p>
                           {voucher.valor && (
                             <p className="text-sm font-medium mt-2">Valor: R$ {voucher.valor.toFixed(2)}</p>
                           )}
@@ -403,9 +403,9 @@ const VendedorVouchers = () => {
       {filteredVouchers.length === 0 && (
         <Card>
           <CardContent className="text-center py-12">
-            <Gift className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900">Nenhum voucher encontrado</h3>
-            <p className="text-gray-600 mt-2">
+            <Gift className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-medium">Nenhum voucher encontrado</h3>
+            <p className="text-muted-foreground mt-2">
               {searchTerm || filterStatus !== "todos" 
                 ? "Tente ajustar os filtros para ver mais resultados."
                 : "Você não possui vouchers disponíveis no momento."

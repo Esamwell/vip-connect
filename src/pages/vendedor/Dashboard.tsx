@@ -39,7 +39,7 @@ const VendedorDashboard = () => {
     queryFn: async () => {
       const response = await fetch("/api/vendedores/minhas-estatisticas", {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
         },
       });
       
@@ -57,7 +57,7 @@ const VendedorDashboard = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {[...Array(8)].map((_, i) => (
             <Card key={i} className="animate-pulse">
-              <div className="h-32 bg-gray-200 rounded"></div>
+              <div className="h-32 bg-muted rounded"></div>
             </Card>
           ))}
         </div>
@@ -68,7 +68,7 @@ const VendedorDashboard = () => {
   if (error) {
     return (
       <div className="text-center py-12">
-        <p className="text-red-600">Erro ao carregar dados do dashboard</p>
+        <p className="text-destructive">Erro ao carregar dados do dashboard</p>
       </div>
     );
   }
@@ -77,8 +77,8 @@ const VendedorDashboard = () => {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Dashboard Vendedor</h1>
-        <p className="text-gray-600 mt-2">
+        <h1 className="text-3xl font-bold">Dashboard Vendedor</h1>
+        <p className="text-muted-foreground mt-2">
           Bem-vindo, {user?.nome}! Aqui está seu resumo de desempenho.
         </p>
       </div>
@@ -158,7 +158,7 @@ const VendedorDashboard = () => {
               </div>
               <Progress value={stats?.meta_vendas_percentual || 0} className="h-2" />
             </div>
-            <div className="flex justify-between text-sm text-gray-600">
+            <div className="flex justify-between text-sm text-muted-foreground">
               <span>Vendas realizadas: {stats?.total_vendas || 0}</span>
               <span>Meta: 100</span>
             </div>
@@ -181,7 +181,7 @@ const VendedorDashboard = () => {
               </div>
               <Progress value={stats?.meta_valor_percentual || 0} className="h-2" />
             </div>
-            <div className="flex justify-between text-sm text-gray-600">
+            <div className="flex justify-between text-sm text-muted-foreground">
               <span>Faturado: R$ {stats?.valor_total_vendas?.toFixed(2) || "0,00"}</span>
               <span>Meta: R$ 50.000,00</span>
             </div>
@@ -228,11 +228,11 @@ const VendedorDashboard = () => {
                 <div key={i} className="flex items-center justify-between p-3 border rounded">
                   <div>
                     <p className="font-medium">Cliente {i}</p>
-                    <p className="text-sm text-gray-600">Plano VIP</p>
+                    <p className="text-sm text-muted-foreground">Plano VIP</p>
                   </div>
                   <div className="text-right">
                     <p className="font-medium">R$ 1.200,00</p>
-                    <p className="text-sm text-gray-600">Há {i} dias</p>
+                    <p className="text-sm text-muted-foreground">Há {i} dias</p>
                   </div>
                 </div>
               ))}
@@ -259,13 +259,13 @@ const VendedorDashboard = () => {
                         <Star
                           key={star}
                           className={`h-4 w-4 ${
-                            star <= (5 - i + 1) ? "text-yellow-400 fill-current" : "text-gray-300"
+                            star <= (5 - i + 1) ? "text-yellow-400 fill-current" : "text-muted-foreground/30"
                           }`}
                         />
                       ))}
                     </div>
                   </div>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-muted-foreground">
                     "Excelente atendimento, muito profissional!"
                   </p>
                 </div>
