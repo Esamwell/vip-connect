@@ -1,6 +1,7 @@
 import express from 'express';
 import pool from '../config/database';
 import { authenticate, authorize } from '../middleware/auth';
+import type { UserRole } from '../types';
 
 const router = express.Router();
 
@@ -8,7 +9,7 @@ const router = express.Router();
  * POST /api/vouchers-vendedor
  * Criar um novo voucher para vendedor (apenas admin_mt, admin_shopping, lojista)
  */
-router.post('/', authenticate, authorize(['admin_mt', 'admin_shopping', 'lojista']), async (req, res) => {
+router.post('/', authenticate, authorize('admin_mt', 'admin_shopping', 'lojista'), async (req, res) => {
   try {
     const {
       vendedor_id,
@@ -162,7 +163,7 @@ router.get('/:id', authenticate, async (req, res) => {
  * POST /api/vouchers-vendedor/:id/resgatar
  * Resgatar um voucher (apenas vendedores)
  */
-router.post('/:id/resgatar', authenticate, authorize(['vendedor']), async (req, res) => {
+router.post('/:id/resgatar', authenticate, authorize('vendedor'), async (req, res) => {
   try {
     const { id } = req.params;
     const { observacoes } = req.body;
@@ -373,7 +374,7 @@ router.get('/resgates/vendedor/:vendedorId', authenticate, async (req, res) => {
  * PUT /api/vouchers-vendedor/:id
  * Atualizar um voucher (apenas admin_mt, admin_shopping, lojista)
  */
-router.put('/:id', authenticate, authorize(['admin_mt', 'admin_shopping', 'lojista']), async (req, res) => {
+router.put('/:id', authenticate, authorize('admin_mt', 'admin_shopping', 'lojista'), async (req, res) => {
   try {
     const { id } = req.params;
     const {
@@ -442,7 +443,7 @@ router.put('/:id', authenticate, authorize(['admin_mt', 'admin_shopping', 'lojis
  * DELETE /api/vouchers-vendedor/:id
  * Desativar um voucher (soft delete)
  */
-router.delete('/:id', authenticate, authorize(['admin_mt', 'admin_shopping', 'lojista']), async (req, res) => {
+router.delete('/:id', authenticate, authorize('admin_mt', 'admin_shopping', 'lojista'), async (req, res) => {
   try {
     const { id } = req.params;
 

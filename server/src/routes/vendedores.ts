@@ -2,6 +2,7 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import pool from '../config/database';
 import { authenticate, authorize } from '../middleware/auth';
+import type { UserRole } from '../types';
 
 const router = express.Router();
 
@@ -9,7 +10,7 @@ const router = express.Router();
  * POST /api/vendedores
  * Criar um novo vendedor (apenas admin_mt, admin_shopping, lojista)
  */
-router.post('/', authenticate, authorize(['admin_mt', 'admin_shopping', 'lojista']), async (req, res) => {
+router.post('/', authenticate, authorize('admin_mt', 'admin_shopping', 'lojista'), async (req, res) => {
   try {
     const {
       nome,
@@ -186,7 +187,7 @@ router.get('/:id', authenticate, async (req, res) => {
  * PUT /api/vendedores/:id
  * Atualizar dados de um vendedor
  */
-router.put('/:id', authenticate, authorize(['admin_mt', 'admin_shopping', 'lojista']), async (req, res) => {
+router.put('/:id', authenticate, authorize('admin_mt', 'admin_shopping', 'lojista'), async (req, res) => {
   try {
     const { id } = req.params;
     const {
@@ -275,7 +276,7 @@ router.put('/:id', authenticate, authorize(['admin_mt', 'admin_shopping', 'lojis
  * PATCH /api/vendedores/:id/senha
  * Alterar senha do vendedor
  */
-router.patch('/:id/senha', authenticate, async (req, res) => {
+router.patch('/:id/senha', authenticate, authorize('admin_mt', 'admin_shopping', 'vendedor'), async (req, res) => {
   try {
     const { id } = req.params;
     const { novaSenha } = req.body;
@@ -343,7 +344,7 @@ router.patch('/:id/senha', authenticate, async (req, res) => {
  * DELETE /api/vendedores/:id
  * Desativar um vendedor (soft delete)
  */
-router.delete('/:id', authenticate, authorize(['admin_mt', 'admin_shopping', 'lojista']), async (req, res) => {
+router.delete('/:id', authenticate, authorize('admin_mt', 'admin_shopping', 'lojista'), async (req, res) => {
   try {
     const { id } = req.params;
 

@@ -1,6 +1,7 @@
 import express from 'express';
 import pool from '../config/database';
 import { authenticate, authorize } from '../middleware/auth';
+import type { UserRole } from '../types';
 
 const router = express.Router();
 
@@ -8,7 +9,7 @@ const router = express.Router();
  * POST /api/premiacoes
  * Criar uma nova premiação por ranking (apenas admin_mt, admin_shopping)
  */
-router.post('/', authenticate, authorize(['admin_mt', 'admin_shopping']), async (req, res) => {
+router.post('/', authenticate, authorize('admin_mt', 'admin_shopping'), async (req, res) => {
   try {
     const {
       nome,
@@ -132,7 +133,7 @@ router.get('/:id', authenticate, async (req, res) => {
  * PUT /api/premiacoes/:id
  * Atualizar uma premiação (apenas admin_mt, admin_shopping)
  */
-router.put('/:id', authenticate, authorize(['admin_mt', 'admin_shopping']), async (req, res) => {
+router.put('/:id', authenticate, authorize('admin_mt', 'admin_shopping'), async (req, res) => {
   try {
     const { id } = req.params;
     const {
@@ -194,7 +195,7 @@ router.put('/:id', authenticate, authorize(['admin_mt', 'admin_shopping']), asyn
  * DELETE /api/premiacoes/:id
  * Desativar uma premiação (soft delete)
  */
-router.delete('/:id', authenticate, authorize(['admin_mt', 'admin_shopping']), async (req, res) => {
+router.delete('/:id', authenticate, authorize('admin_mt', 'admin_shopping'), async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -229,7 +230,7 @@ router.delete('/:id', authenticate, authorize(['admin_mt', 'admin_shopping']), a
  * GET /api/premiacoes/calcular/:periodo
  * Calcular premiações para um período específico
  */
-router.get('/calcular/:periodo', authenticate, authorize(['admin_mt', 'admin_shopping']), async (req, res) => {
+router.get('/calcular/:periodo', authenticate, authorize('admin_mt', 'admin_shopping'), async (req, res) => {
   try {
     const { periodo } = req.params;
     const { tipo_ranking = 'vendas' } = req.query;
@@ -353,7 +354,7 @@ router.get('/calcular/:periodo', authenticate, authorize(['admin_mt', 'admin_sho
  * POST /api/premiacoes/conceder
  * Conceder premiações calculadas
  */
-router.post('/conceder', authenticate, authorize(['admin_mt', 'admin_shopping']), async (req, res) => {
+router.post('/conceder', authenticate, authorize('admin_mt', 'admin_shopping'), async (req, res) => {
   try {
     const { periodo, tipo_ranking = 'vendas', premiacoes } = req.body;
 
@@ -488,7 +489,7 @@ router.get('/vendedor/:vendedorId', authenticate, async (req, res) => {
  * PATCH /api/premiacoes/recebidas/:id/status
  * Atualizar status de uma premiação recebida
  */
-router.patch('/recebidas/:id/status', authenticate, authorize(['admin_mt', 'admin_shopping', 'lojista']), async (req, res) => {
+router.patch('/recebidas/:id/status', authenticate, authorize('admin_mt', 'admin_shopping', 'lojista'), async (req, res) => {
   try {
     const { id } = req.params;
     const { status, observacoes } = req.body;

@@ -1,6 +1,7 @@
 import express from 'express';
 import pool from '../config/database';
 import { authenticate, authorize } from '../middleware/auth';
+import type { UserRole } from '../types';
 
 const router = express.Router();
 
@@ -149,7 +150,7 @@ router.get('/avaliacoes', authenticate, async (req, res) => {
  * GET /api/ranking-vendedores/minha-posicao
  * Obter posição do vendedor logado nos rankings
  */
-router.get('/minha-posicao', authenticate, authorize(['vendedor']), async (req, res) => {
+router.get('/minha-posicao', authenticate, authorize('vendedor'), async (req, res) => {
   try {
     const { periodo = 'mes' } = req.query;
 
