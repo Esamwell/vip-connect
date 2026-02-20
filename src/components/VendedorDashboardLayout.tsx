@@ -16,6 +16,7 @@ import {
   Moon,
   Sun,
   Shield,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -54,6 +55,7 @@ const VendedorDashboardLayout = ({ children }: VendedorDashboardLayoutProps) => 
 
   const menuItems: MenuItemType[] = [
     { title: "Início", path: "/vendedor/dashboard", icon: Home },
+    { title: "Meus Clientes", path: "/vendedor/dashboard/clientes", icon: Users },
     { title: "Meus Vouchers", path: "/vendedor/dashboard/vouchers", icon: Gift },
     { title: "Ranking", path: "/vendedor/dashboard/ranking", icon: Trophy },
     { title: "Avaliações", path: "/vendedor/dashboard/avaliacoes", icon: Star },

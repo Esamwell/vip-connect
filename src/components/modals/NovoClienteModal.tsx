@@ -33,11 +33,19 @@ interface Loja {
   nome: string;
 }
 
+interface Vendedor {
+  id: string;
+  nome: string;
+  codigo_vendedor: string;
+  loja_id: string;
+}
+
 interface FormData {
   nome: string;
   whatsapp: string;
   email?: string;
   loja_id: string;
+  vendedor_id?: string;
   data_venda: string;
   veiculo_marca?: string;
   veiculo_modelo?: string;
@@ -47,6 +55,7 @@ interface FormData {
 
 export function NovoClienteModal({ open, onOpenChange, onSuccess }: NovoClienteModalProps) {
   const [lojas, setLojas] = useState<Loja[]>([]);
+  const [vendedores, setVendedores] = useState<Vendedor[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const {
@@ -59,6 +68,7 @@ export function NovoClienteModal({ open, onOpenChange, onSuccess }: NovoClienteM
   } = useForm<FormData>();
 
   const lojaSelecionada = watch('loja_id');
+  const vendedorSelecionado = watch('vendedor_id');
 
   useEffect(() => {
     if (open) {
@@ -67,8 +77,19 @@ export function NovoClienteModal({ open, onOpenChange, onSuccess }: NovoClienteM
       reset({
         data_venda: new Date().toISOString().split('T')[0],
       });
+      setVendedores([]);
     }
   }, [open]);
+
+  // Carregar vendedores quando a loja mudar
+  useEffect(() => {
+    if (lojaSelecionada) {
+      loadVendedores(lojaSelecionada);
+    } else {
+      setVendedores([]);
+      setValue('vendedor_id', undefined);
+    }
+  }, [lojaSelecionada]);
 
   const loadLojas = async () => {
     try {
@@ -77,6 +98,19 @@ export function NovoClienteModal({ open, onOpenChange, onSuccess }: NovoClienteM
     } catch (error) {
       console.error('Erro ao carregar lojas:', error);
       setLojas([]);
+    }
+  };
+
+  const loadVendedores = async (lojaId: string) => {
+    try {
+      const data = await api.get<Vendedor[]>('/vendedores').catch(() => []);
+      const filtered = Array.isArray(data)
+        ? data.filter((v) => v.loja_id === lojaId)
+        : [];
+      setVendedores(filtered);
+    } catch (error) {
+      console.error('Erro ao carregar vendedores:', error);
+      setVendedores([]);
     }
   };
 
@@ -172,7 +206,10 @@ export function NovoClienteModal({ open, onOpenChange, onSuccess }: NovoClienteM
               </Label>
               <Select
                 value={lojaSelecionada}
-                onValueChange={(value) => setValue('loja_id', value, { shouldValidate: true })}
+                onValueChange={(value) => {
+                  setValue('loja_id', value, { shouldValidate: true });
+                  setValue('vendedor_id', undefined);
+                }}
               >
                 <SelectTrigger className={errors.loja_id ? 'border-destructive' : ''}>
                   <SelectValue placeholder="Selecione a loja" />
@@ -196,6 +233,32 @@ export function NovoClienteModal({ open, onOpenChange, onSuccess }: NovoClienteM
               )}
             </div>
           </div>
+
+          {lojaSelecionada && vendedores.length > 0 && (
+            <div className="space-y-2">
+              <Label htmlFor="vendedor_id" className="text-sm font-medium">
+                Vendedor
+              </Label>
+              <Select
+                value={vendedorSelecionado || ''}
+                onValueChange={(value) => setValue('vendedor_id', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o vendedor (opcional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {vendedores.map((vendedor) => (
+                    <SelectItem key={vendedor.id} value={vendedor.id}>
+                      {vendedor.nome} ({vendedor.codigo_vendedor})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Vincule este cliente a um vendedor da loja
+              </p>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="data_venda" className="text-sm font-medium">

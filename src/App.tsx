@@ -36,6 +36,7 @@ import VendedorAvaliacoes from "./pages/vendedor/Avaliacoes";
 import VendedorPremiacoes from "./pages/vendedor/Premiacoes";
 import VendedorMetas from "./pages/vendedor/Metas";
 import VendedorConfiguracoes from "./pages/vendedor/Configuracoes";
+import VendedorMeusClientes from "./pages/vendedor/MeusClientes";
 
 const queryClient = new QueryClient();
 
@@ -122,6 +123,16 @@ const App = () => (
                 <ProtectedRoute allowedRoles={['vendedor']}>
                   <VendedorDashboardLayout>
                     <VendedorPerfil />
+                  </VendedorDashboardLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/vendedor/dashboard/clientes"
+              element={
+                <ProtectedRoute allowedRoles={['vendedor']}>
+                  <VendedorDashboardLayout>
+                    <VendedorMeusClientes />
                   </VendedorDashboardLayout>
                 </ProtectedRoute>
               }

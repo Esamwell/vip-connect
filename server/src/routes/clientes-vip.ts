@@ -1232,26 +1232,94 @@ router.get('/:id', authenticate, async (req, res) => {
 });
 
 /**
+ * GET /api/clientes-vip/meus-clientes
+ * Lista clientes VIP vinculados ao vendedor logado
+ */
+router.get('/meus-clientes', authenticate, authorize('vendedor'), async (req, res) => {
+  try {
+    const vendedorResult = await pool.query(
+      'SELECT id, loja_id FROM vendedores WHERE user_id = $1 AND ativo = true',
+      [req.user!.userId]
+    );
+
+    if (vendedorResult.rows.length === 0) {
+      return res.status(403).json({ error: 'Vendedor não encontrado ou inativo' });
+    }
+
+    const vendedor = vendedorResult.rows[0];
+    const { status, search } = req.query;
+
+    let query = `
+      SELECT c.*, l.nome as loja_nome
+      FROM clientes_vip c
+      JOIN lojas l ON c.loja_id = l.id
+      WHERE c.vendedor_id = $1
+    `;
+    const params: any[] = [vendedor.id];
+    let paramIndex = 2;
+
+    if (status && status !== 'todos') {
+      query += ` AND c.status = $${paramIndex}`;
+      params.push(status);
+      paramIndex++;
+    }
+
+    if (search) {
+      query += ` AND (c.nome ILIKE $${paramIndex} OR c.whatsapp ILIKE $${paramIndex} OR c.email ILIKE $${paramIndex})`;
+      params.push(`%${search}%`);
+      paramIndex++;
+    }
+
+    query += ' ORDER BY c.created_at DESC';
+
+    const result = await pool.query(query, params);
+    res.json(result.rows);
+  } catch (error: any) {
+    console.error('Erro ao listar clientes do vendedor:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+/**
  * POST /api/clientes-vip
  * Cria novo cliente VIP (ativação automática após venda)
  */
 router.post(
   '/',
   authenticate,
-  authorize('admin_mt', 'admin_shopping', 'lojista'),
+  authorize('admin_mt', 'admin_shopping', 'lojista', 'vendedor'),
   async (req, res) => {
     try {
       const {
         nome,
         whatsapp,
         email,
-        loja_id,
+        loja_id: body_loja_id,
+        vendedor_id: body_vendedor_id,
         data_venda,
         veiculo_marca,
         veiculo_modelo,
         veiculo_ano,
         veiculo_placa,
       } = req.body;
+
+      let loja_id = body_loja_id;
+      let vendedor_id = body_vendedor_id || null;
+
+      // Se for vendedor, auto-resolver loja_id e vendedor_id
+      if (req.user!.role === 'vendedor') {
+        const vendedorResult = await pool.query(
+          'SELECT id, loja_id FROM vendedores WHERE user_id = $1 AND ativo = true',
+          [req.user!.userId]
+        );
+        if (vendedorResult.rows.length === 0) {
+          return res.status(403).json({
+            error: 'Vendedor não encontrado ou inativo',
+          });
+        }
+        vendedor_id = vendedorResult.rows[0].id;
+        loja_id = vendedorResult.rows[0].loja_id;
+      }
 
       if (!nome || !whatsapp || !loja_id || !data_venda) {
         return res.status(400).json({
@@ -1268,6 +1336,19 @@ router.post(
         if (lojaResult.rows.length === 0) {
           return res.status(403).json({
             error: 'Você só pode criar clientes para sua própria loja',
+          });
+        }
+      }
+
+      // Validar vendedor_id se fornecido (para admin/lojista)
+      if (vendedor_id && req.user!.role !== 'vendedor') {
+        const vendedorCheck = await pool.query(
+          'SELECT id FROM vendedores WHERE id = $1 AND loja_id = $2 AND ativo = true',
+          [vendedor_id, loja_id]
+        );
+        if (vendedorCheck.rows.length === 0) {
+          return res.status(400).json({
+            error: 'Vendedor não encontrado ou não pertence a esta loja',
           });
         }
       }
@@ -1307,6 +1388,7 @@ router.post(
         whatsapp,
         email,
         loja_id,
+        vendedor_id,
         data_venda_original: data_venda,
         data_venda_formatada: dataVendaFormatada,
         data_validade_formatada: dataValidadeFormatada,
@@ -1320,16 +1402,17 @@ router.post(
 
       const clienteResult = await pool.query(
         `INSERT INTO clientes_vip (
-          nome, whatsapp, email, loja_id, status, data_venda, 
+          nome, whatsapp, email, loja_id, vendedor_id, status, data_venda, 
           data_ativacao, data_validade, qr_code_digital, qr_code_fisico,
           veiculo_marca, veiculo_modelo, veiculo_ano, veiculo_placa
-        ) VALUES ($1, $2, $3, $4, 'ativo', $5, NOW(), $6, $7, $8, $9, $10, $11, $12)
+        ) VALUES ($1, $2, $3, $4, $5, 'ativo', $6, NOW(), $7, $8, $9, $10, $11, $12, $13)
         RETURNING *`,
         [
           nome,
           whatsapp,
           email || null,
           loja_id,
+          vendedor_id,
           dataVendaFormatada,
           dataValidadeFormatada,
           qrCodeDigital,
