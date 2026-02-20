@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import {
   LayoutDashboard,
   Users,
+  UserCheck,
   Store,
   Handshake,
   BarChart3,
@@ -153,6 +154,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           section: 'gestao',
         },
         {
+          title: 'Vendedores',
+          icon: UserCheck,
+          path: '/dashboard/vendedores',
+          roles: ['admin_mt'],
+          section: 'gestao',
+        },
+        {
           title: 'Benefícios',
           icon: Gift,
           path: '/dashboard/beneficios',
@@ -215,6 +223,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           section: 'gestao',
         },
         {
+          title: 'Vendedores',
+          icon: UserCheck,
+          path: '/dashboard/vendedores',
+          roles: ['admin_shopping'],
+          section: 'gestao',
+        },
+        {
           title: 'Chamados',
           icon: MessageSquare,
           path: '/dashboard/chamados',
@@ -252,6 +267,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           title: 'Meus Clientes',
           icon: Users,
           path: '/dashboard/clientes',
+          roles: ['lojista'],
+          section: 'gestao',
+        },
+        {
+          title: 'Vendedores',
+          icon: UserCheck,
+          path: '/dashboard/vendedores',
           roles: ['lojista'],
           section: 'gestao',
         },

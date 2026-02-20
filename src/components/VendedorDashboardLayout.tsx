@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Outlet, Link, useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { 
   Home, 
   Users, 
+  UserCircle,
   Gift, 
   Trophy, 
   Star, 
@@ -17,7 +18,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 
-const VendedorDashboardLayout = () => {
+interface VendedorDashboardLayoutProps {
+  children: React.ReactNode;
+}
+
+const VendedorDashboardLayout = ({ children }: VendedorDashboardLayoutProps) => {
   const { user, logout } = useAuth();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -29,6 +34,7 @@ const VendedorDashboardLayout = () => {
     { name: "Avaliações", href: "/vendedor/dashboard/avaliacoes", icon: Star },
     { name: "Premiações", href: "/vendedor/dashboard/premiacoes", icon: Award },
     { name: "Metas", href: "/vendedor/dashboard/metas", icon: TrendingUp },
+    { name: "Meu Perfil", href: "/vendedor/dashboard/perfil", icon: UserCircle },
     { name: "Configurações", href: "/vendedor/dashboard/configuracoes", icon: Settings },
   ];
 
@@ -136,7 +142,7 @@ const VendedorDashboardLayout = () => {
         {/* Page content */}
         <main className="py-6">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <Outlet />
+            {children}
           </div>
         </main>
       </div>

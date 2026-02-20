@@ -23,12 +23,14 @@ import Lojas from "./pages/dashboard/Lojas";
 import Parceiros from "./pages/dashboard/Parceiros";
 import Beneficios from "./pages/dashboard/Beneficios";
 import Configuracoes from "./pages/dashboard/Configuracoes";
+import Vendedores from "./pages/dashboard/Vendedores";
 import { ParceiroDashboardLayout } from "./components/ParceiroDashboardLayout";
 import ParceiroClientes from "./pages/parceiro/Clientes";
 import ParceiroBeneficios from "./pages/parceiro/Beneficios";
 import ParceiroConfiguracoes from "./pages/parceiro/Configuracoes";
 import VendedorDashboard from "./pages/vendedor/Dashboard";
 import VendedorVouchers from "./pages/vendedor/Vouchers";
+import VendedorPerfil from "./pages/vendedor/Perfil";
 
 const queryClient = new QueryClient();
 
@@ -104,6 +106,17 @@ const App = () => (
                 <ProtectedRoute allowedRoles={['vendedor']}>
                   <VendedorDashboardLayout>
                     <VendedorVouchers />
+                  </VendedorDashboardLayout>
+                </ProtectedRoute>
+              }
+            />
+            
+            <Route
+              path="/vendedor/dashboard/perfil"
+              element={
+                <ProtectedRoute allowedRoles={['vendedor']}>
+                  <VendedorDashboardLayout>
+                    <VendedorPerfil />
                   </VendedorDashboardLayout>
                 </ProtectedRoute>
               }
@@ -196,6 +209,16 @@ const App = () => (
                 <ProtectedRoute allowedRoles={['admin_mt']}>
                   <DashboardLayout>
                     <Parceiros />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/vendedores"
+              element={
+                <ProtectedRoute allowedRoles={['admin_mt', 'admin_shopping', 'lojista']}>
+                  <DashboardLayout>
+                    <Vendedores />
                   </DashboardLayout>
                 </ProtectedRoute>
               }

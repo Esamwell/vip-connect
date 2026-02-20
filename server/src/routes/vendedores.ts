@@ -145,6 +145,80 @@ router.get('/', authenticate, async (req, res) => {
 });
 
 /**
+ * GET /api/vendedores/meu-perfil
+ * Obter perfil do vendedor logado
+ */
+router.get('/meu-perfil', authenticate, authorize('vendedor'), async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT v.*, u.email, u.whatsapp as user_whatsapp, l.nome as loja_nome
+       FROM vendedores v
+       JOIN users u ON v.user_id = u.id
+       JOIN lojas l ON v.loja_id = l.id
+       WHERE v.user_id = $1`,
+      [req.user!.userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Perfil de vendedor não encontrado'
+      });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error: any) {
+    console.error('Erro ao obter perfil do vendedor:', error);
+    res.status(500).json({
+      error: 'Erro interno do servidor'
+    });
+  }
+});
+
+/**
+ * GET /api/vendedores/minhas-estatisticas
+ * Obter estatísticas do vendedor logado
+ */
+router.get('/minhas-estatisticas', authenticate, authorize('vendedor'), async (req, res) => {
+  try {
+    // Buscar vendedor
+    const vendedorResult = await pool.query(
+      'SELECT * FROM vendedores WHERE user_id = $1',
+      [req.user!.userId]
+    );
+
+    if (vendedorResult.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Vendedor não encontrado'
+      });
+    }
+
+    const vendedor = vendedorResult.rows[0];
+
+    // Estatísticas básicas (valores padrão caso tabelas não existam ainda)
+    const stats = {
+      total_vendas: 0,
+      valor_total_vendas: 0,
+      total_avaliacoes: 0,
+      nota_media: 0,
+      posicao_ranking_loja: 0,
+      posicao_ranking_geral: 0,
+      vouchers_disponiveis: 0,
+      vouchers_resgatados: 0,
+      premiacoes_recebidas: 0,
+      meta_vendas_percentual: 0,
+      meta_valor_percentual: 0,
+    };
+
+    res.json(stats);
+  } catch (error: any) {
+    console.error('Erro ao obter estatísticas do vendedor:', error);
+    res.status(500).json({
+      error: 'Erro interno do servidor'
+    });
+  }
+});
+
+/**
  * GET /api/vendedores/:id
  * Obter dados de um vendedor específico
  */
