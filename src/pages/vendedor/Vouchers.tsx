@@ -71,12 +71,24 @@ const VendedorVouchers = () => {
   });
 
   // Buscar resgates realizados
-  const { data: resgates = [] } = useQuery<Resgate[]>({
+  const { data: resgates = [], error: resgatesError } = useQuery<Resgate[]>({
     queryKey: ["vendedor-resgates"],
     queryFn: async () => {
-      // Primeiro buscar o ID do vendedor logado
-      const perfil = await api.get<{ id: string }>('/vendedores/meu-perfil');
-      return api.get<Resgate[]>(`/vouchers-vendedor/resgates/vendedor/${perfil.id}`);
+      console.log('🔍 Buscando resgates...');
+      try {
+        // Primeiro buscar o ID do vendedor logado
+        console.log('👤 Buscando perfil do vendedor...');
+        const perfil = await api.get<{ id: string }>('/vendedores/meu-perfil');
+        console.log('✅ Perfil recebido:', perfil);
+        
+        console.log('🎫 Buscando resgates do vendedor:', perfil.id);
+        const resgates = await api.get<Resgate[]>(`/vouchers-vendedor/resgates/vendedor/${perfil.id}`);
+        console.log('✅ Resgates recebidos:', resgates);
+        return resgates;
+      } catch (err) {
+        console.error('❌ Erro ao buscar resgates:', err);
+        throw err;
+      }
     },
   });
 
