@@ -5,6 +5,7 @@ import { Star, Loader2, MessageSquare, ThumbsUp, ThumbsDown } from "lucide-react
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { api } from "@/services/api";
 
 interface RankingAvaliacoes {
   id: string;
@@ -37,26 +38,14 @@ const VendedorAvaliacoes = () => {
   const { data: minhaPosicao, isLoading: loadingPosicao } = useQuery<MinhaPosicao>({
     queryKey: ["vendedor-minha-posicao-aval", periodo],
     queryFn: async () => {
-      const response = await fetch(`/api/ranking-vendedores/minha-posicao?periodo=${periodo}`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
-        },
-      });
-      if (!response.ok) throw new Error("Erro ao buscar posição");
-      return response.json();
+      return api.get<MinhaPosicao>(`/ranking-vendedores/minha-posicao?periodo=${periodo}`);
     },
   });
 
   const { data: rankingAvaliacoes = [], isLoading: loadingRanking } = useQuery<RankingAvaliacoes[]>({
     queryKey: ["ranking-avaliacoes", periodo],
     queryFn: async () => {
-      const response = await fetch(`/api/ranking-vendedores/avaliacoes?periodo=${periodo}`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
-        },
-      });
-      if (!response.ok) throw new Error("Erro ao buscar ranking");
-      return response.json();
+      return api.get<RankingAvaliacoes[]>(`/ranking-vendedores/avaliacoes?periodo=${periodo}`);
     },
   });
 

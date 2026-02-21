@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Target, DollarSign, TrendingUp, Loader2, CheckCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
+import { api } from "@/services/api";
 
 interface MetasData {
   vendedor: {
@@ -30,13 +31,7 @@ const VendedorMetas = () => {
   const { data: perfil } = useQuery<{ id: string }>({
     queryKey: ["vendedor-perfil-id-metas"],
     queryFn: async () => {
-      const response = await fetch("/api/vendedores/meu-perfil", {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
-        },
-      });
-      if (!response.ok) throw new Error("Erro ao buscar perfil");
-      return response.json();
+      return api.get<{ id: string }>('/vendedores/meu-perfil');
     },
   });
 
@@ -45,16 +40,7 @@ const VendedorMetas = () => {
     queryKey: ["vendedor-metas", perfil?.id, periodo],
     queryFn: async () => {
       if (!perfil?.id) throw new Error("Perfil não encontrado");
-      const response = await fetch(
-        `/api/ranking-vendedores/metas/${perfil.id}?periodo=${periodo}`,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
-          },
-        }
-      );
-      if (!response.ok) throw new Error("Erro ao buscar metas");
-      return response.json();
+      return api.get<MetasData>(`/ranking-vendedores/metas/${perfil.id}?periodo=${periodo}`);
     },
     enabled: !!perfil?.id,
   });

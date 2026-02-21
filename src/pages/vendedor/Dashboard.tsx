@@ -15,6 +15,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
+import { api } from "@/services/api";
 
 interface VendedorStats {
   total_vendas: number;
@@ -38,17 +39,7 @@ const VendedorDashboard = () => {
   const { data: stats, isLoading, error, refetch } = useQuery<VendedorStats>({
     queryKey: ["vendedor-stats"],
     queryFn: async () => {
-      const response = await fetch("/api/vendedores/minhas-estatisticas", {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error("Erro ao buscar estatísticas");
-      }
-      
-      return response.json();
+      return api.get<VendedorStats>('/vendedores/minhas-estatisticas');
     },
     retry: 2,
     staleTime: 30000,

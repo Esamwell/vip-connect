@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Award, Gift, Calendar, Loader2, Trophy } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
+import { api } from "@/services/api";
 
 interface Premiacao {
   id: string;
@@ -40,13 +41,7 @@ const VendedorPremiacoes = () => {
   const { data: perfil } = useQuery<{ id: string }>({
     queryKey: ["vendedor-perfil-id"],
     queryFn: async () => {
-      const response = await fetch("/api/vendedores/meu-perfil", {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
-        },
-      });
-      if (!response.ok) throw new Error("Erro ao buscar perfil");
-      return response.json();
+      return api.get<{ id: string }>('/vendedores/meu-perfil');
     },
   });
 
@@ -55,13 +50,7 @@ const VendedorPremiacoes = () => {
     queryKey: ["vendedor-premiacoes", perfil?.id],
     queryFn: async () => {
       if (!perfil?.id) return [];
-      const response = await fetch(`/api/premiacoes/vendedor/${perfil.id}`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
-        },
-      });
-      if (!response.ok) throw new Error("Erro ao buscar premiações");
-      return response.json();
+      return api.get<Premiacao[]>(`/premiacoes/vendedor/${perfil.id}`);
     },
     enabled: !!perfil?.id,
   });
@@ -70,13 +59,7 @@ const VendedorPremiacoes = () => {
   const { data: premiacoesDisponiveis = [], isLoading: loadingDisponiveis } = useQuery<PremiacaoDisponivel[]>({
     queryKey: ["premiacoes-disponiveis"],
     queryFn: async () => {
-      const response = await fetch("/api/premiacoes", {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
-        },
-      });
-      if (!response.ok) throw new Error("Erro ao buscar premiações disponíveis");
-      return response.json();
+      return api.get<PremiacaoDisponivel[]>('/premiacoes');
     },
   });
 

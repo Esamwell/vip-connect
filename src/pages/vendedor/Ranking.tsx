@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Trophy, Star, TrendingUp, Medal, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
+import { api } from "@/services/api";
 
 interface RankingVendedor {
   id: string;
@@ -44,26 +45,14 @@ const VendedorRanking = () => {
   const { data: minhaPosicao, isLoading: loadingPosicao } = useQuery<MinhaPosicao>({
     queryKey: ["vendedor-minha-posicao", periodo],
     queryFn: async () => {
-      const response = await fetch(`/api/ranking-vendedores/minha-posicao?periodo=${periodo}`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
-        },
-      });
-      if (!response.ok) throw new Error("Erro ao buscar posição");
-      return response.json();
+      return api.get<MinhaPosicao>(`/ranking-vendedores/minha-posicao?periodo=${periodo}`);
     },
   });
 
   const { data: rankingVendas = [], isLoading: loadingRanking } = useQuery<RankingVendedor[]>({
     queryKey: ["ranking-vendas", periodo],
     queryFn: async () => {
-      const response = await fetch(`/api/ranking-vendedores/vendas?periodo=${periodo}`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
-        },
-      });
-      if (!response.ok) throw new Error("Erro ao buscar ranking");
-      return response.json();
+      return api.get<RankingVendedor[]>(`/ranking-vendedores/vendas?periodo=${periodo}`);
     },
   });
 

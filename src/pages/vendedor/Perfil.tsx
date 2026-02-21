@@ -9,6 +9,7 @@ import { User, Mail, Phone, Hash, Store, Percent, Target, DollarSign, KeyRound, 
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
+import { api } from '@/services/api';
 
 interface VendedorPerfil {
   id: string;
@@ -37,17 +38,7 @@ export default function VendedorPerfil() {
   const { data: perfil, isLoading } = useQuery<VendedorPerfil>({
     queryKey: ['vendedor-perfil'],
     queryFn: async () => {
-      const response = await fetch('/api/vendedores/meu-perfil', {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Erro ao buscar perfil');
-      }
-
-      return response.json();
+      return api.get<VendedorPerfil>('/vendedores/meu-perfil');
     },
   });
 
@@ -74,19 +65,7 @@ export default function VendedorPerfil() {
 
     try {
       setAlterandoSenha(true);
-      const response = await fetch(`/api/vendedores/${perfil?.id}/senha`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
-        },
-        body: JSON.stringify({ novaSenha }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Erro ao alterar senha');
-      }
+      await api.patch(`/vendedores/${perfil?.id}/senha`, { novaSenha });
 
       toast({
         title: 'Sucesso!',

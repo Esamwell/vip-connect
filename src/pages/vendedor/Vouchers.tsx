@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { api } from "@/services/api";
 
 interface Voucher {
   id: string;
@@ -57,17 +58,7 @@ const VendedorVouchers = () => {
   const { data: vouchers = [], isLoading } = useQuery<Voucher[]>({
     queryKey: ["vendedor-vouchers"],
     queryFn: async () => {
-      const response = await fetch("/api/vouchers-vendedor", {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error("Erro ao buscar vouchers");
-      }
-      
-      return response.json();
+      return api.get<Voucher[]>('/vouchers-vendedor');
     },
   });
 
@@ -75,40 +66,16 @@ const VendedorVouchers = () => {
   const { data: resgates = [] } = useQuery<Resgate[]>({
     queryKey: ["vendedor-resgates"],
     queryFn: async () => {
-      const response = await fetch("/api/vouchers-vendedor/resgates/meus", {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error("Erro ao buscar resgates");
-      }
-      
-      return response.json();
+      return api.get<Resgate[]>('/vouchers-vendedor/resgates/meus');
     },
   });
 
   // Mutação para resgatar voucher
   const resgatarVoucherMutation = useMutation({
     mutationFn: async (voucherId: string) => {
-      const response = await fetch(`/api/vouchers-vendedor/${voucherId}/resgatar`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
-        },
-        body: JSON.stringify({
-          observacoes: resgateObservacoes,
-        }),
+      return api.post(`/vouchers-vendedor/${voucherId}/resgatar`, {
+        observacoes: resgateObservacoes,
       });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Erro ao resgatar voucher");
-      }
-      
-      return response.json();
     },
     onSuccess: () => {
       toast.success("Voucher resgatado com sucesso!");
