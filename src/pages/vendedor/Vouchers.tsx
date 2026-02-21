@@ -55,10 +55,18 @@ const VendedorVouchers = () => {
   const queryClient = useQueryClient();
 
   // Buscar vouchers disponíveis
-  const { data: vouchers = [], isLoading } = useQuery<Voucher[]>({
+  const { data: vouchers = [], isLoading, error } = useQuery<Voucher[]>({
     queryKey: ["vendedor-vouchers"],
     queryFn: async () => {
-      return api.get<Voucher[]>('/vouchers-vendedor');
+      console.log('🔍 Buscando vouchers...');
+      try {
+        const response = await api.get<Voucher[]>('/vouchers-vendedor');
+        console.log('✅ Vouchers recebidos:', response);
+        return response;
+      } catch (err) {
+        console.error('❌ Erro ao buscar vouchers:', err);
+        throw err;
+      }
     },
   });
 
@@ -136,6 +144,32 @@ const VendedorVouchers = () => {
     if (isExhausted) return { status: "Esgotado", color: "bg-orange-100 text-orange-800", icon: XCircle };
     return { status: "Disponível", color: "bg-blue-100 text-blue-800", icon: Gift };
   };
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <h3 className="text-lg font-medium text-red-800">Erro ao carregar vouchers</h3>
+              <p className="text-red-600 mt-2">
+                A API está retornando HTML em vez de JSON. Isso geralmente indica um problema com o proxy.
+              </p>
+              <div className="mt-4 p-4 bg-red-100 rounded text-left text-sm">
+                <p className="font-mono">Erro: {error.message}</p>
+                <p className="mt-2">Verifique se:</p>
+                <ul className="list-disc list-inside mt-1">
+                  <li>O backend está rodando na porta 3000</li>
+                  <li>O proxy está configurado corretamente</li>
+                  <li>A rota /api/vouchers-vendedor existe</li>
+                </ul>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
