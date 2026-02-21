@@ -27,12 +27,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Users, Plus, Search, MoreHorizontal, Pencil, Trash2, KeyRound } from 'lucide-react';
+import { Users, Plus, Search, MoreHorizontal, Pencil, Trash2, Gift } from 'lucide-react';
 import { api } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { NovoVendedorModal } from '@/components/modals/NovoVendedorModal';
 import { EditarVendedorModal } from '@/components/modals/EditarVendedorModal';
+import { GerenciarVouchersVendedorModal } from '@/components/modals/GerenciarVouchersVendedorModal';
 
 interface Vendedor {
   id: string;
@@ -61,6 +62,8 @@ export default function Vendedores() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [vendedorParaDeletar, setVendedorParaDeletar] = useState<Vendedor | null>(null);
   const [deletando, setDeletando] = useState(false);
+  const [vouchersModalOpen, setVouchersModalOpen] = useState(false);
+  const [vendedorVouchers, setVendedorVouchers] = useState<Vendedor | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -263,6 +266,15 @@ export default function Vendedores() {
                             Editar
                           </DropdownMenuItem>
                           <DropdownMenuItem
+                            onClick={() => {
+                              setVendedorVouchers(vendedor);
+                              setVouchersModalOpen(true);
+                            }}
+                          >
+                            <Gift className="w-4 h-4 mr-2" />
+                            Vouchers
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
                             className="text-destructive focus:text-destructive"
                             onClick={() => {
                               setVendedorParaDeletar(vendedor);
@@ -296,6 +308,15 @@ export default function Vendedores() {
         vendedor={vendedorSelecionado}
         onSuccess={loadVendedores}
       />
+
+      {vendedorVouchers && (
+        <GerenciarVouchersVendedorModal
+          open={vouchersModalOpen}
+          onOpenChange={setVouchersModalOpen}
+          vendedorId={vendedorVouchers.id}
+          vendedorNome={vendedorVouchers.nome}
+        />
+      )}
 
       {/* Delete Confirmation */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
