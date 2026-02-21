@@ -34,6 +34,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
+import { api } from "@/services/api";
 
 interface ClienteVip {
   id: string;
@@ -92,28 +93,12 @@ const VendedorMeusClientes = () => {
       const params = new URLSearchParams();
       if (statusFilter !== "todos") params.append("status", statusFilter);
       if (search) params.append("search", search);
-      // Adicionar timestamp para burlar cache durante debug
-      params.append("_t", Date.now().toString());
       const query = params.toString();
 
-      const url = `/api/clientes-vip/meus-clientes${query ? `?${query}` : ""}`;
-      console.log('[MeusClientes] Fetching:', url);
+      const endpoint = `/clientes-vip/meus-clientes${query ? `?${query}` : ""}`;
+      console.log('[MeusClientes] Fetching via api client:', endpoint);
 
-      const response = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
-        },
-      });
-
-      console.log('[MeusClientes] Response status:', response.status);
-
-      if (!response.ok) {
-        const errorBody = await response.text();
-        console.error('[MeusClientes] Error response:', errorBody);
-        throw new Error(`Erro ${response.status}: ${errorBody}`);
-      }
-
-      const data = await response.json();
+      const data = await api.get<ClienteVip[]>(endpoint);
       console.log('[MeusClientes] Data received:', data?.length, 'clientes');
       return data;
     },
@@ -122,19 +107,7 @@ const VendedorMeusClientes = () => {
   // Mutation para criar cliente
   const criarCliente = useMutation({
     mutationFn: async (data: NovoClienteForm) => {
-      const response = await fetch("/api/clientes-vip", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
-        },
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Erro ao criar cliente");
-      }
-      return response.json();
+      return api.post<ClienteVip>('/clientes-vip', data);
     },
     onSuccess: () => {
       toast({
