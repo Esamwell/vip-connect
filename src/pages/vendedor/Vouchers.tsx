@@ -46,6 +46,15 @@ interface Resgate {
 }
 
 const VendedorVouchers = () => {
+  const toNumber = (value: unknown): number => {
+    if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+    if (typeof value === "string") {
+      const parsed = Number.parseFloat(value);
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+    return 0;
+  };
+
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<"todos" | "disponiveis" | "resgatados" | "expirados">("todos");
   const [selectedVoucher, setSelectedVoucher] = useState<Voucher | null>(null);
@@ -261,7 +270,7 @@ const VendedorVouchers = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              R$ {vouchers.reduce((total, v) => total + (v.valor || 0), 0).toFixed(2)}
+              R$ {vouchers.reduce((total, v) => total + toNumber((v as any).valor), 0).toFixed(2)}
             </div>
           </CardContent>
         </Card>
@@ -333,10 +342,10 @@ const VendedorVouchers = () => {
                   <span className="font-mono text-sm font-medium">{voucher.codigo}</span>
                 </div>
                 
-                {voucher.valor && (
+                {toNumber((voucher as any).valor) > 0 && (
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Valor:</span>
-                    <span className="font-medium">R$ {voucher.valor.toFixed(2)}</span>
+                    <span className="font-medium">R$ {toNumber((voucher as any).valor).toFixed(2)}</span>
                   </div>
                 )}
 
@@ -375,8 +384,8 @@ const VendedorVouchers = () => {
                         <div>
                           <p className="font-medium">{voucher.nome}</p>
                           <p className="text-sm text-muted-foreground">{voucher.descricao}</p>
-                          {voucher.valor && (
-                            <p className="text-sm font-medium mt-2">Valor: R$ {voucher.valor.toFixed(2)}</p>
+                          {toNumber((voucher as any).valor) > 0 && (
+                            <p className="text-sm font-medium mt-2">Valor: R$ {toNumber((voucher as any).valor).toFixed(2)}</p>
                           )}
                         </div>
                         
