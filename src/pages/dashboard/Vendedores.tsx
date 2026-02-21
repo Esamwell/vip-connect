@@ -68,7 +68,7 @@ export default function Vendedores() {
   const [vendedorVouchers, setVendedorVouchers] = useState<Vendedor | null>(null);
   const [perfilModalOpen, setPerfilModalOpen] = useState(false);
   const [vendedorPerfil, setVendedorPerfil] = useState<Vendedor | null>(null);
-  const [filterLoja, setFilterLoja] = useState('');
+  const [filterLoja, setFilterLoja] = useState('all');
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -113,15 +113,24 @@ export default function Vendedores() {
     }
   };
 
+  const lojas = Array.from(
+    vendedores.reduce((acc, v) => {
+      if (v.loja_id && v.loja_nome && !acc.has(v.loja_id)) {
+        acc.set(v.loja_id, v.loja_nome);
+      }
+      return acc;
+    }, new Map<string, string>())
+  ).map(([id, nome]) => ({ id, nome }));
+
   const filteredVendedores = vendedores.filter((v) => {
     const termo = search.toLowerCase();
     const nomeMatch = v.nome.toLowerCase().includes(termo);
     const emailMatch = v.email.toLowerCase().includes(termo);
     const codigoMatch = v.codigo_vendedor.toLowerCase().includes(termo);
-    const lojaMatch = filterLoja ? v.loja_id === filterLoja : true;
-    
-    return nomeMatch || emailMatch || codigoMatch;
-  }).filter(v => filterLoja ? v.loja_id === filterLoja : true);
+    const lojaMatch = filterLoja === 'all' ? true : v.loja_id === filterLoja;
+
+    return (nomeMatch || emailMatch || codigoMatch) && lojaMatch;
+  });
 
   const canCreate = user?.role === 'admin_mt' || user?.role === 'admin_shopping' || user?.role === 'lojista';
 
@@ -212,13 +221,12 @@ export default function Vendedores() {
               <SelectValue placeholder="Filtrar por loja" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Todas as lojas</SelectItem>
-              {Array.from(new Set(vendedores.map(v => ({ id: v.loja_id, nome: v.loja_nome }))))
-                .map((loja: { id: string; nome: string }) => (
-                  <SelectItem key={loja.id} value={loja.id}>
-                    {loja.nome}
-                  </SelectItem>
-                ))}
+              <SelectItem value="all">Todas as lojas</SelectItem>
+              {lojas.map((loja) => (
+                <SelectItem key={loja.id} value={loja.id}>
+                  {loja.nome}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
