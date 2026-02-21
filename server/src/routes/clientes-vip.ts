@@ -1320,6 +1320,8 @@ router.get('/:id', authenticate, async (req, res) => {
       console.log('[FALLBACK] ✅ Query executada!');
       console.log('[FALLBACK] 📊 Clientes encontrados:', result.rows.length);
       console.log('[FALLBACK] 📋 IDs:', result.rows.map(c => c.id));
+      console.log('[FALLBACK] 📤 Enviando response para frontend...');
+      console.log('[FALLBACK] 📋 Dados que serão enviados:', JSON.stringify(result.rows, null, 2));
       console.log('=== FIM FALLBACK ===\n');
       
       return res.json(result.rows);
