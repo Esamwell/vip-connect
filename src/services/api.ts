@@ -2,9 +2,8 @@
  * Cliente HTTP base para fazer requisições à API
  */
 
-// Em produção, usar URL relativa para o proxy nginx
-// Em desenvolvimento, usar localhost:3000
-const API_URL = import.meta.env.MODE === 'production' ? '/api' : (import.meta.env.VITE_API_URL || 'http://localhost:3000/api');
+// Usar VITE_API_URL se definida, senão fallback para /api (proxy nginx) ou localhost
+const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.MODE === 'production' ? '/api' : 'http://localhost:3000/api');
 
 /**
  * Classe para fazer requisições HTTP
