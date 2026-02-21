@@ -1125,29 +1125,43 @@ router.get(
  * IMPORTANTE: Esta rota deve vir ANTES de /:id para evitar conflitos
  */
 router.get('/meus-clientes', authenticate, authorize('vendedor'), async (req, res) => {
+  console.log('\n=== INÍCIO /meus-clientes ===');
+  console.log('[MEUS-CLIENTES] Headers:', Object.keys(req.headers));
+  console.log('[MEUS-CLIENTES] Authorization header presente:', !!req.headers.authorization);
+  console.log('[MEUS-CLIENTES] Query params:', req.query);
+  
   try {
     console.log('[MEUS-CLIENTES] Rota /meus-clientes atingida!');
+    console.log('[MEUS-CLIENTES] req.user:', req.user);
     console.log('[MEUS-CLIENTES] user_id do JWT:', req.user!.userId);
     console.log('[MEUS-CLIENTES] role:', req.user!.role);
+    console.log('[MEUS-CLIENTES] email:', req.user!.email);
 
     const vendedorResult = await pool.query(
-      'SELECT id, loja_id FROM vendedores WHERE user_id = $1 AND ativo = true',
+      'SELECT id, loja_id, nome FROM vendedores WHERE user_id = $1 AND ativo = true',
       [req.user!.userId]
     );
 
+    console.log('[MEUS-CLIENTES] Query executada: SELECT id, loja_id, nome FROM vendedores WHERE user_id =', req.user!.userId, 'AND ativo = true');
     console.log('[MEUS-CLIENTES] Vendedor encontrado:', vendedorResult.rows.length, 'registros');
+    console.log('[MEUS-CLIENTES] Resultado bruto:', vendedorResult.rows);
+    
     if (vendedorResult.rows.length > 0) {
-      console.log('[MEUS-CLIENTES] Vendedor ID:', vendedorResult.rows[0].id, 'Loja ID:', vendedorResult.rows[0].loja_id);
+      console.log('[MEUS-CLIENTES] Vendedor ID:', vendedorResult.rows[0].id);
+      console.log('[MEUS-CLIENTES] Vendedor Nome:', vendedorResult.rows[0].nome);
+      console.log('[MEUS-CLIENTES] Loja ID:', vendedorResult.rows[0].loja_id);
     }
 
     if (vendedorResult.rows.length === 0) {
+      console.log('[MEUS-CLIENTES] ❌ Vendedor não encontrado! Retornando 403');
       return res.status(403).json({ error: 'Vendedor não encontrado ou inativo' });
     }
 
     const vendedor = vendedorResult.rows[0];
     const { status, search } = req.query;
+    console.log('[MEUS-CLIENTES] Filtros - status:', status, 'search:', search);
 
-    // Verificar se a coluna vendedor_id existe na tabela clientes_vip
+    // Verificar se a coluna vendedor_id existe
     const colCheck = await pool.query(`
       SELECT column_name FROM information_schema.columns 
       WHERE table_name = 'clientes_vip' AND column_name = 'vendedor_id'
@@ -1156,28 +1170,37 @@ router.get('/meus-clientes', authenticate, authorize('vendedor'), async (req, re
     console.log('[MEUS-CLIENTES] Coluna vendedor_id existe:', colCheck.rows.length > 0);
 
     if (colCheck.rows.length === 0) {
+      console.log('[MEUS-CLIENTES] ⚠️ Coluna vendedor_id não existe, criando...');
       try {
         await pool.query('ALTER TABLE clientes_vip ADD COLUMN IF NOT EXISTS vendedor_id UUID REFERENCES vendedores(id) ON DELETE SET NULL');
         await pool.query('CREATE INDEX IF NOT EXISTS idx_clientes_vip_vendedor_id ON clientes_vip(vendedor_id)');
-        console.log('[MEUS-CLIENTES] Coluna vendedor_id criada automaticamente');
+        console.log('[MEUS-CLIENTES] ✅ Coluna vendedor_id criada automaticamente');
       } catch (alterError: any) {
-        console.error('[MEUS-CLIENTES] Erro ao criar coluna vendedor_id:', alterError.message);
+        console.error('[MEUS-CLIENTES] ❌ Erro ao criar coluna vendedor_id:', alterError.message);
         return res.json([]);
       }
     }
 
-    // Debug: verificar quantos clientes têm vendedor_id preenchido
+    // Debug: verificar totais
     const debugCount = await pool.query(
       'SELECT COUNT(*) as total, COUNT(vendedor_id) as com_vendedor FROM clientes_vip'
     );
-    console.log('[MEUS-CLIENTES] Total clientes:', debugCount.rows[0].total, '| Com vendedor_id:', debugCount.rows[0].com_vendedor);
+    console.log('[MEUS-CLIENTES] 📊 Total clientes na tabela:', debugCount.rows[0].total);
+    console.log('[MEUS-CLIENTES] 📊 Clientes com vendedor_id preenchido:', debugCount.rows[0].com_vendedor);
 
     // Debug: verificar clientes com este vendedor_id específico
     const debugVendedor = await pool.query(
       'SELECT COUNT(*) as total FROM clientes_vip WHERE vendedor_id = $1',
       [vendedor.id]
     );
-    console.log('[MEUS-CLIENTES] Clientes com vendedor_id =', vendedor.id, ':', debugVendedor.rows[0].total);
+    console.log('[MEUS-CLIENTES] 📊 Clientes com vendedor_id =', vendedor.id, ':', debugVendedor.rows[0].total);
+
+    // Debug: mostrar os IDs dos clientes deste vendedor
+    const debugClientes = await pool.query(
+      'SELECT id, nome, whatsapp FROM clientes_vip WHERE vendedor_id = $1 LIMIT 5',
+      [vendedor.id]
+    );
+    console.log('[MEUS-CLIENTES] 📋 Primeiros 5 clientes do vendedor:', debugClientes.rows);
 
     let query = `
       SELECT c.*, l.nome as loja_nome
@@ -1192,22 +1215,34 @@ router.get('/meus-clientes', authenticate, authorize('vendedor'), async (req, re
       query += ` AND c.status = $${paramIndex}`;
       params.push(status);
       paramIndex++;
+      console.log('[MEUS-CLIENTES] Adicionando filtro status:', status);
     }
 
     if (search) {
       query += ` AND (c.nome ILIKE $${paramIndex} OR c.whatsapp ILIKE $${paramIndex} OR c.email ILIKE $${paramIndex})`;
       params.push(`%${search}%`);
       paramIndex++;
+      console.log('[MEUS-CLIENTES] Adicionando filtro search:', search);
     }
 
     query += ' ORDER BY c.created_at DESC';
+    console.log('[MEUS-CLIENTES] Query final:', query);
+    console.log('[MEUS-CLIENTES] Parâmetros:', params);
 
     const result = await pool.query(query, params);
-    console.log('[MEUS-CLIENTES] Resultado final:', result.rows.length, 'clientes encontrados');
+    console.log('[MEUS-CLIENTES] ✅ Query executada com sucesso!');
+    console.log('[MEUS-CLIENTES] 📊 Resultado final:', result.rows.length, 'clientes encontrados');
+    console.log('[MEUS-CLIENTES] 📋 IDs dos clientes retornados:', result.rows.map(c => c.id));
+    console.log('=== FIM /meus-clientes ===\n');
+    
     res.json(result.rows);
   } catch (error: any) {
-    console.error('[MEUS-CLIENTES] ERRO:', error.message);
+    console.error('[MEUS-CLIENTES] ❌ ERRO CAPTURADO:');
+    console.error('[MEUS-CLIENTES] Mensagem:', error.message);
+    console.error('[MEUS-CLIENTES] Código:', error.code);
+    console.error('[MEUS-CLIENTES] Detalhe:', error.detail);
     console.error('[MEUS-CLIENTES] Stack:', error.stack);
+    console.log('=== FIM /meus-clientes (COM ERRO) ===\n');
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
@@ -1221,32 +1256,42 @@ router.get('/:id', authenticate, async (req, res) => {
 
   // Fallback: se /:id capturar 'meus-clientes', executar a lógica aqui
   if (id === 'meus-clientes') {
+    console.log('\n🚨 ATENÇÃO: /:id capturou "meus-clientes" - Isso significa que a ordem das rotas está errada!');
+    console.log('[FALLBACK] Iniciando execução do fallback...');
+    
     try {
+      console.log('[FALLBACK] req.user:', req.user);
+      console.log('[FALLBACK] role:', req.user!.role);
+      
       if (req.user!.role !== 'vendedor') {
+        console.log('[FALLBACK] ❌ Usuário não é vendedor:', req.user!.role);
         return res.status(403).json({ error: 'Acesso negado. Permissão insuficiente.' });
       }
 
-      console.log('[MEUS-CLIENTES-FALLBACK] Rota capturada pelo /:id handler');
-      console.log('[MEUS-CLIENTES-FALLBACK] user_id:', req.user!.userId);
+      console.log('[FALLBACK] ✅ Usuário é vendedor, continuando...');
+      console.log('[FALLBACK] user_id:', req.user!.userId);
 
       const vendedorResult = await pool.query(
-        'SELECT id, loja_id FROM vendedores WHERE user_id = $1 AND ativo = true',
+        'SELECT id, loja_id, nome FROM vendedores WHERE user_id = $1 AND ativo = true',
         [req.user!.userId]
       );
 
-      console.log('[MEUS-CLIENTES-FALLBACK] Vendedor encontrado:', vendedorResult.rows.length);
+      console.log('[FALLBACK] Query vendedor executada, resultado:', vendedorResult.rows.length, 'registros');
 
       if (vendedorResult.rows.length === 0) {
+        console.log('[FALLBACK] ❌ Vendedor não encontrado!');
         return res.status(403).json({ error: 'Vendedor não encontrado ou inativo' });
       }
 
       const vendedor = vendedorResult.rows[0];
-      console.log('[MEUS-CLIENTES-FALLBACK] Vendedor ID:', vendedor.id);
+      console.log('[FALLBACK] ✅ Vendedor encontrado - ID:', vendedor.id, 'Nome:', vendedor.nome);
 
       // Garantir que a coluna vendedor_id existe
       await pool.query('ALTER TABLE clientes_vip ADD COLUMN IF NOT EXISTS vendedor_id UUID REFERENCES vendedores(id) ON DELETE SET NULL').catch(() => {});
 
       const { status, search } = req.query;
+      console.log('[FALLBACK] Filtros - status:', status, 'search:', search);
+      
       let query = `
         SELECT c.*, l.nome as loja_nome
         FROM clientes_vip c
@@ -1268,11 +1313,21 @@ router.get('/:id', authenticate, async (req, res) => {
       }
       query += ' ORDER BY c.created_at DESC';
 
+      console.log('[FALLBACK] Query final:', query);
+      console.log('[FALLBACK] Parâmetros:', params);
+
       const result = await pool.query(query, params);
-      console.log('[MEUS-CLIENTES-FALLBACK] Clientes encontrados:', result.rows.length);
+      console.log('[FALLBACK] ✅ Query executada!');
+      console.log('[FALLBACK] 📊 Clientes encontrados:', result.rows.length);
+      console.log('[FALLBACK] 📋 IDs:', result.rows.map(c => c.id));
+      console.log('=== FIM FALLBACK ===\n');
+      
       return res.json(result.rows);
     } catch (error: any) {
-      console.error('[MEUS-CLIENTES-FALLBACK] ERRO:', error.message);
+      console.error('[FALLBACK] ❌ ERRO NO FALLBACK:');
+      console.error('[FALLBACK] Mensagem:', error.message);
+      console.error('[FALLBACK] Stack:', error.stack);
+      console.log('=== FIM FALLBACK (COM ERRO) ===\n');
       return res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
