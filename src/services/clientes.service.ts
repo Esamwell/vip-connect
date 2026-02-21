@@ -18,6 +18,7 @@ export interface ClienteVip {
   veiculo_modelo?: string;
   veiculo_ano?: number;
   veiculo_placa?: string;
+  veiculo_valor?: string | number;
   potencial_recompra: boolean;
   beneficios_oficiais?: any[];
   beneficios_loja?: any[];

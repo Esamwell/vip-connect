@@ -1460,6 +1460,7 @@ router.post(
         veiculo_modelo,
         veiculo_ano,
         veiculo_placa,
+        veiculo_valor,
       } = req.body;
 
       let loja_id = body_loja_id;
@@ -1544,6 +1545,9 @@ router.post(
       // Garantir que a coluna vendedor_id existe
       await pool.query('ALTER TABLE clientes_vip ADD COLUMN IF NOT EXISTS vendedor_id UUID REFERENCES vendedores(id) ON DELETE SET NULL').catch(() => {});
 
+      // Garantir que a coluna veiculo_valor existe
+      await pool.query('ALTER TABLE clientes_vip ADD COLUMN IF NOT EXISTS veiculo_valor NUMERIC(12,2)').catch(() => {});
+
       // Criar cliente VIP
       console.log('Criando cliente VIP com dados:', {
         nome,
@@ -1560,14 +1564,15 @@ router.post(
         veiculo_modelo,
         veiculo_ano,
         veiculo_placa,
+        veiculo_valor,
       });
 
       const clienteResult = await pool.query(
         `INSERT INTO clientes_vip (
           nome, whatsapp, email, loja_id, vendedor_id, status, data_venda, 
           data_ativacao, data_validade, qr_code_digital, qr_code_fisico,
-          veiculo_marca, veiculo_modelo, veiculo_ano, veiculo_placa
-        ) VALUES ($1, $2, $3, $4, $5, 'ativo', $6, NOW(), $7, $8, $9, $10, $11, $12, $13)
+          veiculo_marca, veiculo_modelo, veiculo_ano, veiculo_placa, veiculo_valor
+        ) VALUES ($1, $2, $3, $4, $5, 'ativo', $6, NOW(), $7, $8, $9, $10, $11, $12, $13, $14)
         RETURNING *`,
         [
           nome,
@@ -1583,6 +1588,7 @@ router.post(
           veiculo_modelo || null,
           veiculo_ano || null,
           veiculo_placa || null,
+          veiculo_valor || null,
         ]
       );
 

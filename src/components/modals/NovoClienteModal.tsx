@@ -51,6 +51,7 @@ interface FormData {
   veiculo_modelo?: string;
   veiculo_ano?: string;
   veiculo_placa?: string;
+  veiculo_valor?: string;
 }
 
 export function NovoClienteModal({ open, onOpenChange, onSuccess }: NovoClienteModalProps) {
@@ -240,13 +241,14 @@ export function NovoClienteModal({ open, onOpenChange, onSuccess }: NovoClienteM
                 Vendedor
               </Label>
               <Select
-                value={vendedorSelecionado || ''}
-                onValueChange={(value) => setValue('vendedor_id', value)}
+                value={vendedorSelecionado || 'none'}
+                onValueChange={(value) => setValue('vendedor_id', value === 'none' ? undefined : value)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione o vendedor (opcional)" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="none">Nenhum</SelectItem>
                   {vendedores.map((vendedor) => (
                     <SelectItem key={vendedor.id} value={vendedor.id}>
                       {vendedor.nome} ({vendedor.codigo_vendedor})
@@ -322,6 +324,20 @@ export function NovoClienteModal({ open, onOpenChange, onSuccess }: NovoClienteM
                   id="veiculo_placa"
                   placeholder="ABC-1234"
                   {...register('veiculo_placa')}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="veiculo_valor" className="text-sm font-medium">
+                  Valor do Veículo
+                </Label>
+                <Input
+                  id="veiculo_valor"
+                  type="number"
+                  step="0.01"
+                  inputMode="decimal"
+                  placeholder="50000.00"
+                  {...register('veiculo_valor')}
                 />
               </div>
             </div>

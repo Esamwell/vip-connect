@@ -90,6 +90,7 @@ CREATE TABLE clientes_vip (
     veiculo_modelo VARCHAR(100),
     veiculo_ano INTEGER,
     veiculo_placa VARCHAR(10),
+    veiculo_valor NUMERIC(12, 2),
     potencial_recompra BOOLEAN DEFAULT false, -- Marca se é potencial para recompra
     notificado_vencimento BOOLEAN DEFAULT false, -- Se já foi notificado sobre vencimento
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

@@ -64,6 +64,7 @@ interface NovoClienteForm {
   veiculo_modelo?: string;
   veiculo_ano?: string;
   veiculo_placa?: string;
+  veiculo_valor?: string;
 }
 
 const VendedorMeusClientes = () => {
@@ -447,6 +448,20 @@ const VendedorMeusClientes = () => {
                     id="veiculo_placa"
                     placeholder="ABC-1234"
                     {...register("veiculo_placa")}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="veiculo_valor" className="text-sm font-medium">
+                    Valor do Veículo
+                  </Label>
+                  <Input
+                    id="veiculo_valor"
+                    type="number"
+                    step="0.01"
+                    inputMode="decimal"
+                    placeholder="50000.00"
+                    {...register("veiculo_valor")}
                   />
                 </div>
               </div>
