@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -27,13 +28,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Users, Plus, Search, MoreHorizontal, Pencil, Trash2, Gift } from 'lucide-react';
+import { Users, Plus, Search, MoreHorizontal, Pencil, Trash2, Gift, Eye } from 'lucide-react';
 import { api } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { NovoVendedorModal } from '@/components/modals/NovoVendedorModal';
 import { EditarVendedorModal } from '@/components/modals/EditarVendedorModal';
 import { GerenciarVouchersVendedorModal } from '@/components/modals/GerenciarVouchersVendedorModal';
+import { VerPerfilVendedorModal } from '@/components/modals/VerPerfilVendedorModal';
 
 interface Vendedor {
   id: string;
@@ -64,6 +66,9 @@ export default function Vendedores() {
   const [deletando, setDeletando] = useState(false);
   const [vouchersModalOpen, setVouchersModalOpen] = useState(false);
   const [vendedorVouchers, setVendedorVouchers] = useState<Vendedor | null>(null);
+  const [perfilModalOpen, setPerfilModalOpen] = useState(false);
+  const [vendedorPerfil, setVendedorPerfil] = useState<Vendedor | null>(null);
+  const [filterLoja, setFilterLoja] = useState('');
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -110,13 +115,13 @@ export default function Vendedores() {
 
   const filteredVendedores = vendedores.filter((v) => {
     const termo = search.toLowerCase();
-    return (
-      v.nome.toLowerCase().includes(termo) ||
-      v.email.toLowerCase().includes(termo) ||
-      v.codigo_vendedor.toLowerCase().includes(termo) ||
-      v.loja_nome.toLowerCase().includes(termo)
-    );
-  });
+    const nomeMatch = v.nome.toLowerCase().includes(termo);
+    const emailMatch = v.email.toLowerCase().includes(termo);
+    const codigoMatch = v.codigo_vendedor.toLowerCase().includes(termo);
+    const lojaMatch = filterLoja ? v.loja_id === filterLoja : true;
+    
+    return nomeMatch || emailMatch || codigoMatch;
+  }).filter(v => filterLoja ? v.loja_id === filterLoja : true);
 
   const canCreate = user?.role === 'admin_mt' || user?.role === 'admin_shopping' || user?.role === 'lojista';
 
@@ -190,15 +195,33 @@ export default function Vendedores() {
         </Card>
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          placeholder="Buscar por nome, email, código ou loja..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-9"
-        />
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="relative max-w-sm flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por nome, email ou código..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <div className="w-full sm:w-48">
+          <Select value={filterLoja} onValueChange={setFilterLoja}>
+            <SelectTrigger>
+              <SelectValue placeholder="Filtrar por loja" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">Todas as lojas</SelectItem>
+              {Array.from(new Set(vendedores.map(v => ({ id: v.loja_id, nome: v.loja_nome }))))
+                .map((loja: { id: string; nome: string }) => (
+                  <SelectItem key={loja.id} value={loja.id}>
+                    {loja.nome}
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Table */}
@@ -258,6 +281,15 @@ export default function Vendedores() {
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem
                             onClick={() => {
+                              setVendedorPerfil(vendedor);
+                              setPerfilModalOpen(true);
+                            }}
+                          >
+                            <Eye className="w-4 h-4 mr-2" />
+                            Ver Perfil
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
                               setVendedorSelecionado(vendedor);
                               setEditarModalOpen(true);
                             }}
@@ -315,6 +347,15 @@ export default function Vendedores() {
           onOpenChange={setVouchersModalOpen}
           vendedorId={vendedorVouchers.id}
           vendedorNome={vendedorVouchers.nome}
+        />
+      )}
+
+      {vendedorPerfil && (
+        <VerPerfilVendedorModal
+          open={perfilModalOpen}
+          onOpenChange={setPerfilModalOpen}
+          vendedorId={vendedorPerfil.id}
+          vendedorNome={vendedorPerfil.nome}
         />
       )}
 
