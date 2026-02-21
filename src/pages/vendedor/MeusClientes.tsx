@@ -92,6 +92,8 @@ const VendedorMeusClientes = () => {
       const params = new URLSearchParams();
       if (statusFilter !== "todos") params.append("status", statusFilter);
       if (search) params.append("search", search);
+      // Adicionar timestamp para burlar cache durante debug
+      params.append("_t", Date.now().toString());
       const query = params.toString();
 
       const url = `/api/clientes-vip/meus-clientes${query ? `?${query}` : ""}`;
