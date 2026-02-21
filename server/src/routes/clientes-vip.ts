@@ -1218,6 +1218,64 @@ router.get('/meus-clientes', authenticate, authorize('vendedor'), async (req, re
  */
 router.get('/:id', authenticate, async (req, res) => {
   const { id } = req.params;
+
+  // Fallback: se /:id capturar 'meus-clientes', executar a lógica aqui
+  if (id === 'meus-clientes') {
+    try {
+      if (req.user!.role !== 'vendedor') {
+        return res.status(403).json({ error: 'Acesso negado. Permissão insuficiente.' });
+      }
+
+      console.log('[MEUS-CLIENTES-FALLBACK] Rota capturada pelo /:id handler');
+      console.log('[MEUS-CLIENTES-FALLBACK] user_id:', req.user!.userId);
+
+      const vendedorResult = await pool.query(
+        'SELECT id, loja_id FROM vendedores WHERE user_id = $1 AND ativo = true',
+        [req.user!.userId]
+      );
+
+      console.log('[MEUS-CLIENTES-FALLBACK] Vendedor encontrado:', vendedorResult.rows.length);
+
+      if (vendedorResult.rows.length === 0) {
+        return res.status(403).json({ error: 'Vendedor não encontrado ou inativo' });
+      }
+
+      const vendedor = vendedorResult.rows[0];
+      console.log('[MEUS-CLIENTES-FALLBACK] Vendedor ID:', vendedor.id);
+
+      // Garantir que a coluna vendedor_id existe
+      await pool.query('ALTER TABLE clientes_vip ADD COLUMN IF NOT EXISTS vendedor_id UUID REFERENCES vendedores(id) ON DELETE SET NULL').catch(() => {});
+
+      const { status, search } = req.query;
+      let query = `
+        SELECT c.*, l.nome as loja_nome
+        FROM clientes_vip c
+        JOIN lojas l ON c.loja_id = l.id
+        WHERE c.vendedor_id = $1
+      `;
+      const params: any[] = [vendedor.id];
+      let paramIndex = 2;
+
+      if (status && status !== 'todos') {
+        query += ` AND c.status = $${paramIndex}`;
+        params.push(status);
+        paramIndex++;
+      }
+      if (search) {
+        query += ` AND (c.nome ILIKE $${paramIndex} OR c.whatsapp ILIKE $${paramIndex} OR c.email ILIKE $${paramIndex})`;
+        params.push(`%${search}%`);
+        paramIndex++;
+      }
+      query += ' ORDER BY c.created_at DESC';
+
+      const result = await pool.query(query, params);
+      console.log('[MEUS-CLIENTES-FALLBACK] Clientes encontrados:', result.rows.length);
+      return res.json(result.rows);
+    } catch (error: any) {
+      console.error('[MEUS-CLIENTES-FALLBACK] ERRO:', error.message);
+      return res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  }
   
   try {
     console.log('Buscando cliente VIP com ID:', id);

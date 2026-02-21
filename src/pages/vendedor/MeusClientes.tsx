@@ -86,7 +86,7 @@ const VendedorMeusClientes = () => {
   });
 
   // Buscar clientes do vendedor
-  const { data: clientes = [], isLoading } = useQuery<ClienteVip[]>({
+  const { data: clientes = [], isLoading, error } = useQuery<ClienteVip[]>({
     queryKey: ["vendedor-meus-clientes", statusFilter, search],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -94,16 +94,26 @@ const VendedorMeusClientes = () => {
       if (search) params.append("search", search);
       const query = params.toString();
 
-      const response = await fetch(
-        `/api/clientes-vip/meus-clientes${query ? `?${query}` : ""}`,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
-          },
-        }
-      );
-      if (!response.ok) throw new Error("Erro ao buscar clientes");
-      return response.json();
+      const url = `/api/clientes-vip/meus-clientes${query ? `?${query}` : ""}`;
+      console.log('[MeusClientes] Fetching:', url);
+
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+        },
+      });
+
+      console.log('[MeusClientes] Response status:', response.status);
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        console.error('[MeusClientes] Error response:', errorBody);
+        throw new Error(`Erro ${response.status}: ${errorBody}`);
+      }
+
+      const data = await response.json();
+      console.log('[MeusClientes] Data received:', data?.length, 'clientes');
+      return data;
     },
   });
 
@@ -182,6 +192,12 @@ const VendedorMeusClientes = () => {
 
   return (
     <div className="space-y-6">
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-800">
+          <p className="font-semibold">Erro ao carregar clientes:</p>
+          <p className="text-sm mt-1">{(error as Error).message}</p>
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Meus Clientes</h1>
