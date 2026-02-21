@@ -2,12 +2,12 @@
 
 # Proxy para API - encaminha requisições /api/* para o backend
 handle /api/* {
-    reverse_proxy localhost:3000
+    reverse_proxy backend:3000
 }
 
 # Proxy para health check do backend
 handle /health {
-    reverse_proxy localhost:3000
+    reverse_proxy backend:3000
 }
 
 # Frontend - servir arquivos estáticos e SPA routing
