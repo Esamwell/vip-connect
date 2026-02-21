@@ -66,7 +66,9 @@ const VendedorVouchers = () => {
   const { data: resgates = [] } = useQuery<Resgate[]>({
     queryKey: ["vendedor-resgates"],
     queryFn: async () => {
-      return api.get<Resgate[]>('/vouchers-vendedor/resgates/meus');
+      // Primeiro buscar o ID do vendedor logado
+      const perfil = await api.get<{ id: string }>('/vendedores/meu-perfil');
+      return api.get<Resgate[]>(`/vouchers-vendedor/resgates/vendedor/${perfil.id}`);
     },
   });
 
