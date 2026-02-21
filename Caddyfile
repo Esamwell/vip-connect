@@ -1,12 +1,25 @@
 :80
 
-root * /app/dist
+# Proxy para API - encaminha requisições /api/* para o backend
+handle /api/* {
+    reverse_proxy localhost:3000
+}
 
-# Servir arquivos estáticos
-file_server
+# Proxy para health check do backend
+handle /health {
+    reverse_proxy localhost:3000
+}
 
-# SPA routing - fallback para index.html em todas as rotas
-try_files {path} /index.html
+# Frontend - servir arquivos estáticos e SPA routing
+handle {
+    root * /app/dist
+    
+    # Servir arquivos estáticos
+    file_server
+    
+    # SPA routing - fallback para index.html
+    try_files {path} /index.html
+}
 
 # Headers de segurança
 header {
