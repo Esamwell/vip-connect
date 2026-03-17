@@ -187,7 +187,7 @@ router.delete(
       const { id } = req.params;
 
       // Não se pode deletar a si mesmo (precaução básica)
-      if (id === req.user?.id) {
+      if (id === req.user?.userId) {
          return res.status(400).json({ error: 'Não é possível desativar o próprio usuário enquanto logado' });
       }
 

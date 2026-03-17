@@ -18,8 +18,6 @@ import vendedoresRoutes from './routes/vendedores';
 import vouchersVendedorRoutes from './routes/vouchers-vendedor';
 import rankingVendedoresRoutes from './routes/ranking-vendedores';
 import premiacoesRoutes from './routes/premiacoes';
-import uploadRoutes from './routes/upload';
-import configuracoesRoutes from './routes/configuracoes';
 import usuariosRoutes from './routes/usuarios';
 
 // Carregar variáveis de ambiente
@@ -61,8 +59,6 @@ app.use('/api/vendedores', vendedoresRoutes);
 app.use('/api/vouchers-vendedor', vouchersVendedorRoutes);
 app.use('/api/ranking-vendedores', rankingVendedoresRoutes);
 app.use('/api/premiacoes', premiacoesRoutes);
-app.use('/api/upload', uploadRoutes);
-app.use('/api/configuracoes', configuracoesRoutes);
 app.use('/api/usuarios', usuariosRoutes);
 
 // Rota 404
