@@ -208,6 +208,7 @@ export default function Parceiros() {
             </TableBody>
           </Table>
         </CardContent>
+      </Card>
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
