@@ -24,6 +24,7 @@ import Parceiros from "./pages/dashboard/Parceiros";
 import Beneficios from "./pages/dashboard/Beneficios";
 import Configuracoes from "./pages/dashboard/Configuracoes";
 import Vendedores from "./pages/dashboard/Vendedores";
+import Usuarios from "./pages/dashboard/Usuarios";
 import { ParceiroDashboardLayout } from "./components/ParceiroDashboardLayout";
 import ParceiroClientes from "./pages/parceiro/Clientes";
 import ParceiroBeneficios from "./pages/parceiro/Beneficios";
@@ -305,6 +306,16 @@ const App = () => (
                 <ProtectedRoute allowedRoles={['admin_mt']}>
                   <DashboardLayout>
                     <Configuracoes />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/usuarios"
+              element={
+                <ProtectedRoute allowedRoles={['admin_mt', 'admin_shopping']}>
+                  <DashboardLayout>
+                    <Usuarios />
                   </DashboardLayout>
                 </ProtectedRoute>
               }

@@ -10,8 +10,25 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Store, Plus, Eye } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Store, Plus, Eye, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
 import { api } from '@/services/api';
+import { useToast } from '@/hooks/use-toast';
 import { NovaLojaModal } from '@/components/modals/NovaLojaModal';
 import { VerLojaModal } from '@/components/modals/VerLojaModal';
 
@@ -30,6 +47,10 @@ export default function Lojas() {
   const [modalOpen, setModalOpen] = useState(false);
   const [lojaModalOpen, setLojaModalOpen] = useState(false);
   const [lojaSelecionada, setLojaSelecionada] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [lojaParaDeletar, setLojaParaDeletar] = useState<Loja | null>(null);
+  const [deletando, setDeletando] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     loadLojas();
@@ -50,6 +71,30 @@ export default function Lojas() {
 
   const handleNovaLojaSuccess = () => {
     loadLojas();
+  };
+
+  const handleDesativar = async () => {
+    if (!lojaParaDeletar) return;
+
+    try {
+      setDeletando(true);
+      await api.delete(`/lojas/${lojaParaDeletar.id}`);
+      toast({
+        title: 'Sucesso!',
+        description: 'Loja desativada com sucesso.',
+      });
+      loadLojas();
+    } catch (error: any) {
+      toast({
+        title: 'Erro',
+        description: error.message || 'Erro ao desativar loja.',
+        variant: 'destructive',
+      });
+    } finally {
+      setDeletando(false);
+      setDeleteDialogOpen(false);
+      setLojaParaDeletar(null);
+    }
   };
 
   if (loading) {
@@ -122,18 +167,35 @@ export default function Lojas() {
                         {loja.ativo ? 'Ativa' : 'Inativa'}
                       </Badge>
                     </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setLojaSelecionada(loja.id);
-                          setLojaModalOpen(true);
-                        }}
-                      >
-                        <Eye className="w-4 h-4 mr-2" />
-                        Ver
-                      </Button>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setLojaSelecionada(loja.id);
+                              setLojaModalOpen(true);
+                            }}
+                          >
+                            <Eye className="w-4 h-4 mr-2" />
+                            Ver
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => {
+                              setLojaParaDeletar(loja);
+                              setDeleteDialogOpen(true);
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Desativar
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))
@@ -141,7 +203,27 @@ export default function Lojas() {
             </TableBody>
           </Table>
         </CardContent>
-      </Card>
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Desativar Loja</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja desativar a loja <strong>{lojaParaDeletar?.nome}</strong>?
+              O login da loja também será desativado, mas os dados serão mantidos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletando}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDesativar}
+              disabled={deletando}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deletando ? 'Desativando...' : 'Desativar'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

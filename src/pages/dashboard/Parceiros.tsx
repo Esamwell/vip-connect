@@ -10,8 +10,25 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Handshake, Plus, Eye } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Handshake, Plus, Eye, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
 import { api } from '@/services/api';
+import { useToast } from '@/hooks/use-toast';
 import { NovoParceiroModal } from '@/components/modals/NovoParceiroModal';
 import { VerParceiroModal } from '@/components/modals/VerParceiroModal';
 
@@ -31,6 +48,10 @@ export default function Parceiros() {
   const [modalOpen, setModalOpen] = useState(false);
   const [parceiroModalOpen, setParceiroModalOpen] = useState(false);
   const [parceiroSelecionado, setParceiroSelecionado] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [parceiroParaDeletar, setParceiroParaDeletar] = useState<Parceiro | null>(null);
+  const [deletando, setDeletando] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     loadParceiros();
@@ -51,6 +72,30 @@ export default function Parceiros() {
 
   const handleNovoParceiroSuccess = () => {
     loadParceiros();
+  };
+
+  const handleDesativar = async () => {
+    if (!parceiroParaDeletar) return;
+
+    try {
+      setDeletando(true);
+      await api.delete(`/parceiros/${parceiroParaDeletar.id}`);
+      toast({
+        title: 'Sucesso!',
+        description: 'Parceiro desativado com sucesso.',
+      });
+      loadParceiros();
+    } catch (error: any) {
+      toast({
+        title: 'Erro',
+        description: error.message || 'Erro ao desativar parceiro.',
+        variant: 'destructive',
+      });
+    } finally {
+      setDeletando(false);
+      setDeleteDialogOpen(false);
+      setParceiroParaDeletar(null);
+    }
   };
 
   if (loading) {
@@ -127,18 +172,35 @@ export default function Parceiros() {
                         {parceiro.ativo ? 'Ativo' : 'Inativo'}
                       </Badge>
                     </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setParceiroSelecionado(parceiro.id);
-                          setParceiroModalOpen(true);
-                        }}
-                      >
-                        <Eye className="w-4 h-4 mr-2" />
-                        Ver
-                      </Button>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setParceiroSelecionado(parceiro.id);
+                              setParceiroModalOpen(true);
+                            }}
+                          >
+                            <Eye className="w-4 h-4 mr-2" />
+                            Ver
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => {
+                              setParceiroParaDeletar(parceiro);
+                              setDeleteDialogOpen(true);
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Desativar
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))
@@ -146,7 +208,27 @@ export default function Parceiros() {
             </TableBody>
           </Table>
         </CardContent>
-      </Card>
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Desativar Parceiro</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja desativar o parceiro <strong>{parceiroParaDeletar?.nome}</strong>?
+              O login do parceiro também será desativado, mas os dados serão mantidos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletando}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDesativar}
+              disabled={deletando}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deletando ? 'Desativando...' : 'Desativar'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -34,8 +34,9 @@ interface FormData {
   tipo: string;
   cnpj?: string;
   telefone?: string;
-  email?: string;
+  email: string;
   endereco?: string;
+  senha?: string;
 }
 
 export function NovoParceiroModal({ open, onOpenChange, onSuccess }: NovoParceiroModalProps) {
@@ -172,14 +173,37 @@ export function NovoParceiroModal({ open, onOpenChange, onSuccess }: NovoParceir
 
           <div className="space-y-2">
             <Label htmlFor="email" className="text-sm font-medium">
-              Email
+              Email *
             </Label>
             <Input
               id="email"
               type="email"
               placeholder="parceiro@email.com"
-              {...register('email')}
+              {...register('email', { required: 'Email é obrigatório' })}
+              className={errors.email ? 'border-destructive' : ''}
             />
+            {errors.email && (
+              <p className="text-xs text-destructive">{errors.email.message}</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="senha" className="text-sm font-medium">
+              Senha *
+            </Label>
+            <Input
+              id="senha"
+              type="password"
+              placeholder="Senha de acesso"
+              {...register('senha', { 
+                required: 'Senha é obrigatória',
+                minLength: { value: 6, message: 'A senha deve ter no mínimo 6 caracteres' } 
+              })}
+              className={errors.senha ? 'border-destructive' : ''}
+            />
+            {errors.senha && (
+              <p className="text-xs text-destructive">{errors.senha.message}</p>
+            )}
           </div>
 
           <div className="space-y-2">

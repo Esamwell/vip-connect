@@ -202,6 +202,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           roles: ['admin_mt'],
           section: 'sistema',
         },
+        {
+          title: 'Usuários',
+          icon: Users,
+          path: '/dashboard/usuarios',
+          roles: ['admin_mt'],
+          section: 'sistema',
+        },
       ];
     }
 
@@ -256,6 +263,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           path: '/dashboard/renovacoes',
           roles: ['admin_shopping'],
           section: 'atendimento',
+        },
+        {
+          title: 'Usuários',
+          icon: Users,
+          path: '/dashboard/usuarios',
+          roles: ['admin_shopping'],
+          section: 'sistema',
         },
       ];
     }

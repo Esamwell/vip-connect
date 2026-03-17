@@ -56,8 +56,10 @@ interface Vendedor {
 
 export default function Vendedores() {
   const [vendedores, setVendedores] = useState<Vendedor[]>([]);
+  const [termoBusca, setTermoBusca] = useState('');
+  const [lojaSelecionada, setLojaSelecionada] = useState<string>('todas');
+  const [statusFiltro, setStatusFiltro] = useState<string>('todos'); // 'todos', 'ativos', 'inativos'
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
   const [novoModalOpen, setNovoModalOpen] = useState(false);
   const [editarModalOpen, setEditarModalOpen] = useState(false);
   const [vendedorSelecionado, setVendedorSelecionado] = useState<Vendedor | null>(null);
@@ -68,7 +70,6 @@ export default function Vendedores() {
   const [vendedorVouchers, setVendedorVouchers] = useState<Vendedor | null>(null);
   const [perfilModalOpen, setPerfilModalOpen] = useState(false);
   const [vendedorPerfil, setVendedorPerfil] = useState<Vendedor | null>(null);
-  const [filterLoja, setFilterLoja] = useState('all');
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -122,14 +123,24 @@ export default function Vendedores() {
     }, new Map<string, string>())
   ).map(([id, nome]) => ({ id, nome }));
 
-  const filteredVendedores = vendedores.filter((v) => {
-    const termo = search.toLowerCase();
-    const nomeMatch = v.nome.toLowerCase().includes(termo);
-    const emailMatch = v.email.toLowerCase().includes(termo);
-    const codigoMatch = v.codigo_vendedor.toLowerCase().includes(termo);
-    const lojaMatch = filterLoja === 'all' ? true : v.loja_id === filterLoja;
+  const filteredVendedores = vendedores.filter((vendedor) => {
+    const term = termoBusca.toLowerCase();
+    const matchSearch =
+      vendedor.nome.toLowerCase().includes(term) ||
+      (vendedor.whatsapp && vendedor.whatsapp.includes(term)) ||
+      (vendedor.loja_nome && vendedor.loja_nome.toLowerCase().includes(term));
+    
+    const matchLoja =
+      lojaSelecionada === 'todas' || vendedor.loja_id === lojaSelecionada;
 
-    return (nomeMatch || emailMatch || codigoMatch) && lojaMatch;
+    let matchStatus = true;
+    if (statusFiltro === 'ativos') {
+      matchStatus = vendedor.ativo === true;
+    } else if (statusFiltro === 'inativos') {
+      matchStatus = vendedor.ativo === false;
+    }
+
+    return matchSearch && matchLoja && matchStatus;
   });
 
   const canCreate = user?.role === 'admin_mt' || user?.role === 'admin_shopping' || user?.role === 'lojista';

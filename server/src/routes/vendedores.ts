@@ -498,7 +498,7 @@ router.get('/loja/:lojaId', authenticate, async (req, res) => {
       `SELECT v.*, u.email, u.whatsapp as user_whatsapp
        FROM vendedores v
        JOIN users u ON v.user_id = u.id
-       WHERE v.loja_id = $1 AND v.ativo = true
+       WHERE v.loja_id = $1
        ORDER BY v.nome`,
       [lojaId]
     );

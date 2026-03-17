@@ -1,4 +1,5 @@
 import express from 'express';
+import bcrypt from 'bcryptjs';
 import pool from '../config/database';
 import { authenticate, authorize } from '../middleware/auth';
 
@@ -173,11 +174,23 @@ router.post(
   authorize('admin_mt', 'admin_shopping'),
   async (req, res) => {
     try {
-      const { nome, tipo, cnpj, telefone, email, endereco } = req.body;
+      const { nome, tipo, cnpj, telefone, email, endereco, senha } = req.body;
 
       if (!nome || !tipo) {
         return res.status(400).json({
           error: 'Nome e tipo são obrigatórios',
+        });
+      }
+
+      if (!email || !senha) {
+        return res.status(400).json({
+          error: 'Email e senha são obrigatórios',
+        });
+      }
+
+      if (senha.length < 6) {
+        return res.status(400).json({
+          error: 'A senha deve ter no mínimo 6 caracteres',
         });
       }
 
@@ -223,20 +236,8 @@ router.post(
         }
       }
 
-      // Gerar email único para o usuário
-      // Se email do parceiro foi fornecido, usar ele, senão gerar um baseado no nome
+      // Usar email fornecido (obrigatório)
       let emailUsuario = email;
-      if (!emailUsuario) {
-        // Gerar email baseado no nome do parceiro (normalizar e adicionar sufixo único)
-        const nomeNormalizado = nome
-          .toLowerCase()
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '')
-          .replace(/[^a-z0-9]/g, '')
-          .substring(0, 20);
-        const timestamp = Date.now().toString().slice(-6);
-        emailUsuario = `parceiro${nomeNormalizado}${timestamp}@exemplo.com`;
-      }
 
       // Verificar se email já existe
       const emailCheck = await pool.query(
@@ -256,8 +257,8 @@ router.post(
         emailUsuario = `parceiro${timestamp}@exemplo.com`;
       }
 
-      // Hash da senha padrão: Parceiro123!
-      const senhaPadraoHash = '$2a$10$WNO5jKAYOMQxflGBXV11e.CqzEh.Y0naLRydEGzvmZBlWKyHj1p1e';
+      // Criptografar a senha fornecida
+      const senhaHash = await bcrypt.hash(senha, 10);
 
       // Usar transação para garantir atomicidade
       const client = await pool.connect();
@@ -282,7 +283,7 @@ router.post(
              RETURNING id`,
             [
               emailUsuario,
-              senhaPadraoHash,
+              senhaHash,
               'parceiro',
               `Parceiro ${nome}`,
               telefoneLimpo
@@ -563,6 +564,64 @@ router.patch(
     } catch (error: any) {
       console.error('Erro ao atualizar parceiro:', error);
       res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  }
+);
+
+/**
+ * DELETE /api/parceiros/:id
+ * Desativar um parceiro (soft delete)
+ */
+router.delete(
+  '/:id',
+  authenticate,
+  authorize('admin_mt', 'admin_shopping'),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      // Verificar se o parceiro existe
+      const checkQuery = 'SELECT * FROM parceiros WHERE id = $1';
+      const checkResult = await pool.query(checkQuery, [id]);
+
+      if (checkResult.rows.length === 0) {
+        return res.status(404).json({
+          error: 'Parceiro não encontrado'
+        });
+      }
+
+      const parceiro = checkResult.rows[0];
+
+      // Iniciar transação
+      await pool.query('BEGIN');
+
+      try {
+        // Desativar usuário associado se houver user_id
+        if (parceiro.user_id) {
+          await pool.query(
+            'UPDATE users SET ativo = false, updated_at = CURRENT_TIMESTAMP WHERE id = $1',
+            [parceiro.user_id]
+          );
+        }
+
+        // Desativar parceiro
+        await pool.query(
+          'UPDATE parceiros SET ativo = false, updated_at = CURRENT_TIMESTAMP WHERE id = $1',
+          [id]
+        );
+
+        await pool.query('COMMIT');
+
+        res.json({ message: 'Parceiro desativado com sucesso' });
+      } catch (error) {
+        await pool.query('ROLLBACK');
+        throw error;
+      }
+    } catch (error: any) {
+      console.error('Erro ao desativar parceiro:', error);
+      res.status(500).json({
+        error: 'Erro interno do servidor'
+      });
     }
   }
 );
