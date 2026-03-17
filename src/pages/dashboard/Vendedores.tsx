@@ -221,13 +221,13 @@ export default function Vendedores() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             placeholder="Buscar por nome, email ou código..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            value={termoBusca}
+            onChange={(e) => setTermoBusca(e.target.value)}
             className="pl-9"
           />
         </div>
         <div className="w-full sm:w-48">
-          <Select value={filterLoja} onValueChange={setFilterLoja}>
+          <Select value={lojaSelecionada} onValueChange={setLojaSelecionada}>
             <SelectTrigger>
               <SelectValue placeholder="Filtrar por loja" />
             </SelectTrigger>
@@ -265,7 +265,7 @@ export default function Vendedores() {
               {filteredVendedores.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                    {search ? 'Nenhum vendedor encontrado para a busca' : 'Nenhum vendedor cadastrado'}
+                    {termoBusca ? 'Nenhum vendedor encontrado para a busca' : 'Nenhum vendedor cadastrado'}
                   </TableCell>
                 </TableRow>
               ) : (

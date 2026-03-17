@@ -71,8 +71,8 @@ export default function Usuarios() {
   const loadUsuarios = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/usuarios');
-      setUsuarios(response.data);
+      const data = await api.get<Usuario[]>('/usuarios');
+      setUsuarios(Array.isArray(data) ? data : []);
     } catch (error: any) {
       toast({
         title: 'Erro',
