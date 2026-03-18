@@ -648,15 +648,25 @@ export function ClienteVIPModal({ open, onOpenChange, clienteId }: ClienteVIPMod
                                 </div>
                               )}
                             </div>
-                            {!isResgatado && (
+                            {user?.role !== 'parceiro' && !isResgatado && (
                               <Button
+                                onClick={() => handleResgatarBeneficio(beneficio.alocacao_id || beneficio.id, beneficio.nome)}
                                 variant="outline"
+                                className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 whitespace-nowrap"
                                 size="sm"
-                                onClick={() => handleResgatarBeneficio(beneficio.alocacao_id, beneficio.nome)}
-                                className="flex-shrink-0"
+                                disabled={resgatandoBeneficio === (beneficio.alocacao_id || beneficio.id)}
                               >
-                                <XCircle className="w-4 h-4 mr-2" />
-                                Resgatar
+                                {resgatandoBeneficio === (beneficio.alocacao_id || beneficio.id) ? (
+                                  <>
+                                    <span className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin mr-2" />
+                                    Resgatando...
+                                  </>
+                                ) : (
+                                  <>
+                                    <XCircle className="w-4 h-4 mr-2" />
+                                    Resgatar
+                                  </>
+                                )}
                               </Button>
                             )}
                           </div>
