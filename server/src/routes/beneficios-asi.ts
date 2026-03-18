@@ -150,7 +150,7 @@ router.delete(
 router.post(
   '/vincular',
   authenticate,
-  authorize('admin_mt'),
+  authorize('admin_mt', 'admin_shopping'),
   async (req, res) => {
     try {
       const { cliente_vip_id, beneficio_asi_id } = req.body;
@@ -175,8 +175,8 @@ router.post(
       }
 
       const result = await pool.query(
-        `INSERT INTO clientes_beneficios (cliente_vip_id, beneficio_asi_id, tipo, ativo)
-         VALUES ($1, $2, 'asi', true)
+        `INSERT INTO clientes_beneficios (cliente_vip_id, beneficio_asi_id, tipo, ativo, beneficio_oficial_id, beneficio_loja_id)
+         VALUES ($1, $2, 'asi', true, null, null)
          RETURNING *`,
         [cliente_vip_id, beneficio_asi_id]
       );
