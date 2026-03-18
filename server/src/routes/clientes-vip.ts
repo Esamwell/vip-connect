@@ -335,7 +335,11 @@ router.get(
           l.nome as loja_nome,
           COALESCE(bo.ativo, bl.ativo) as ativo,
           cb.ativo as alocacao_ativa,
-          cb.resgatado,
+          CASE 
+            WHEN cb.tipo = 'oficial' AND bo.parceiro_id IS NOT NULL THEN
+              CASE WHEN cb.resgatado = true AND cb.data_resgate > CURRENT_DATE - INTERVAL '1 month' THEN true ELSE false END
+            ELSE cb.resgatado
+          END as resgatado,
           cb.data_resgate,
           u.nome as resgatado_por_nome
         FROM clientes_beneficios cb
@@ -386,7 +390,7 @@ router.get(
 router.post(
   '/:id/beneficios/:alocacaoId/resgatar',
   authenticate,
-  authorize('admin_mt', 'admin_shopping', 'lojista'),
+  authorize('admin_mt', 'admin_shopping', 'lojista', 'parceiro'),
   async (req, res) => {
     try {
       const { id, alocacaoId } = req.params;
@@ -419,7 +423,10 @@ router.post(
 
       // Verificar se a alocação existe e pertence ao cliente
       const alocacaoCheck = await pool.query(
-        'SELECT id, resgatado FROM clientes_beneficios WHERE id = $1 AND cliente_vip_id = $2',
+        `SELECT cb.id, cb.resgatado, cb.data_resgate, cb.tipo, bo.parceiro_id
+         FROM clientes_beneficios cb
+         LEFT JOIN beneficios_oficiais bo ON cb.beneficio_oficial_id = bo.id
+         WHERE cb.id = $1 AND cb.cliente_vip_id = $2`,
         [alocacaoId, id]
       );
 
@@ -429,8 +436,15 @@ router.post(
 
       const alocacao = alocacaoCheck.rows[0];
 
-      // Se já está resgatado, retornar erro
-      if (alocacao.resgatado) {
+      // Se já está resgatado, verificar a regra de 30 dias (renovação mensal) para parceiros
+      if (alocacao.resgatado && alocacao.tipo === 'oficial' && alocacao.parceiro_id) {
+        const umMesAtras = new Date();
+        umMesAtras.setMonth(umMesAtras.getMonth() - 1);
+        
+        if (alocacao.data_resgate && new Date(alocacao.data_resgate) > umMesAtras) {
+          return res.status(400).json({ error: 'Este benefício já foi resgatado e está aguardando renovação (ciclo de 30 dias)' });
+        }
+      } else if (alocacao.resgatado && (alocacao.tipo !== 'oficial' || !alocacao.parceiro_id)) {
         return res.status(400).json({ error: 'Este benefício já foi resgatado' });
       }
 
@@ -1611,6 +1625,14 @@ router.post(
         );
       }
 
+      // Atribuir automaticamente todos os benefícios oficiais ativos
+      await pool.query(`
+        INSERT INTO clientes_beneficios (cliente_vip_id, beneficio_oficial_id, tipo, ativo, resgatado)
+        SELECT $1, id, 'oficial', true, false
+        FROM beneficios_oficiais
+        WHERE ativo = true
+      `, [cliente.id]);
+
       // Disparar evento para MT Leads (não crítico - não deve quebrar o fluxo)
       try {
         await enviarEventoMTLeads(EventosMTLeads.VIP_ATIVADO, {
@@ -1702,6 +1724,14 @@ router.post(
 
       if (clienteResult.rows.length > 0) {
         const cliente = clienteResult.rows[0];
+
+        // Atribuir automaticamente todos os benefícios oficiais ativos
+        await pool.query(`
+          INSERT INTO clientes_beneficios (cliente_vip_id, beneficio_oficial_id, tipo, ativo, resgatado)
+          SELECT $1, id, 'oficial', true, false
+          FROM beneficios_oficiais
+          WHERE ativo = true
+        `, [cliente.id]);
 
         // Disparar evento para MT Leads
         await enviarEventoMTLeads(EventosMTLeads.VIP_ATIVADO, {
