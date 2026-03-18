@@ -72,11 +72,14 @@ const ClientCard = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Estados para avaliação
-  const [avaliacaoNota, setAvaliacaoNota] = useState<number>(0);
-  const [avaliacaoComentario, setAvaliacaoComentario] = useState('');
+  const [avaliacaoNotaLoja, setAvaliacaoNotaLoja] = useState<number>(0);
+  const [avaliacaoComentarioLoja, setAvaliacaoComentarioLoja] = useState('');
+  const [avaliacaoNotaVendedor, setAvaliacaoNotaVendedor] = useState<number>(0);
+  const [avaliacaoComentarioVendedor, setAvaliacaoComentarioVendedor] = useState('');
   const [avaliacaoEnviada, setAvaliacaoEnviada] = useState(false);
   const [avaliacaoEnviando, setAvaliacaoEnviando] = useState(false);
-  const [jaAvaliou, setJaAvaliou] = useState(false);
+  const [jaAvaliouLoja, setJaAvaliouLoja] = useState(false);
+  const [jaAvaliouVendedor, setJaAvaliouVendedor] = useState(false);
 
   // Estados para chamados
   const [meusChamados, setMeusChamados] = useState<any[]>([]);
@@ -166,13 +169,22 @@ const ClientCard = () => {
     if (!qrCode) return;
     try {
       // Tentar buscar avaliação existente usando QR code (rota pública)
-      const avaliacaoExistente = await api.get<any>(`/ranking/qr/${qrCode}/avaliacao`).catch(() => null);
+      const avaliacoes = await api.get<any>(`/ranking/qr/${qrCode}/avaliacao`).catch(() => null);
       
-      if (avaliacaoExistente) {
-        setJaAvaliou(true);
-        setAvaliacaoNota(avaliacaoExistente.nota);
-        setAvaliacaoComentario(avaliacaoExistente.comentario || '');
-        setAvaliacaoEnviada(true);
+      if (avaliacoes) {
+        if (avaliacoes.loja) {
+          setJaAvaliouLoja(true);
+          setAvaliacaoNotaLoja(avaliacoes.loja.nota);
+          setAvaliacaoComentarioLoja(avaliacoes.loja.comentario || '');
+        }
+        if (avaliacoes.vendedor) {
+          setJaAvaliouVendedor(true);
+          setAvaliacaoNotaVendedor(avaliacoes.vendedor.nota);
+          setAvaliacaoComentarioVendedor(avaliacoes.vendedor.comentario || '');
+        }
+        if (avaliacoes.loja || avaliacoes.vendedor) {
+          setAvaliacaoEnviada(true);
+        }
       }
     } catch (error) {
       console.error('Erro ao verificar avaliação:', error);
@@ -181,10 +193,11 @@ const ClientCard = () => {
 
   // Enviar avaliação
   const handleEnviarAvaliacao = async () => {
-    if (!cliente || avaliacaoNota === 0) {
+    if (!cliente) return;
+    if (avaliacaoNotaLoja === 0 && avaliacaoNotaVendedor === 0) {
       toast({
         title: 'Avaliação incompleta',
-        description: 'Por favor, selecione uma nota para a loja.',
+        description: 'Por favor, selecione uma nota para a loja ou vendedor.',
         variant: 'destructive',
       });
       return;
@@ -196,42 +209,35 @@ const ClientCard = () => {
       // Usar QR code para rota pública ou ID para rota autenticada
       const qrCodeToUse = qrCode || cliente.qr_code_digital || cliente.qr_code_fisico || '';
       
-      console.log('Enviando avaliação:', {
-        qrCodeToUse,
-        clienteId: cliente.id,
-        lojaId: cliente.loja_id,
-        nota: avaliacaoNota,
-        temQRCode: !!qrCodeToUse,
-        startsWithVIP: qrCodeToUse.startsWith('VIP-'),
-        startsWithFISICO: qrCodeToUse.startsWith('FISICO-'),
-      });
+      const payload = {
+        nota_loja: avaliacaoNotaLoja > 0 ? avaliacaoNotaLoja : undefined,
+        comentario_loja: avaliacaoComentarioLoja || undefined,
+        nota_vendedor: avaliacaoNotaVendedor > 0 ? avaliacaoNotaVendedor : undefined,
+        comentario_vendedor: avaliacaoComentarioVendedor || undefined,
+        anonima: false, // Sempre enviar dados do cliente
+      };
       
       if (qrCodeToUse && (qrCodeToUse.startsWith('VIP-') || qrCodeToUse.startsWith('FISICO-'))) {
-        // Usar rota pública com QR code
-        console.log('Usando rota pública com QR code:', qrCodeToUse);
         await api.post('/ranking/avaliacoes/qr', {
           qr_code: qrCodeToUse,
-          nota: avaliacaoNota,
-          comentario: avaliacaoComentario || null,
-          anonima: false, // Sempre enviar dados do cliente
+          ...payload
         });
       } else {
-        // Usar rota autenticada com ID
-        console.log('Usando rota autenticada com ID do cliente');
         await api.post('/ranking/avaliacoes', {
           cliente_vip_id: cliente.id,
           loja_id: cliente.loja_id,
-          nota: avaliacaoNota,
-          comentario: avaliacaoComentario || null,
-          anonima: false, // Sempre enviar dados do cliente
+          vendedor_id: cliente.vendedor_id,
+          ...payload
         });
       }
 
       setAvaliacaoEnviada(true);
-      setJaAvaliou(true);
+      if (avaliacaoNotaLoja > 0) setJaAvaliouLoja(true);
+      if (avaliacaoNotaVendedor > 0) setJaAvaliouVendedor(true);
+      
       toast({
         title: 'Avaliação enviada!',
-        description: 'Obrigado por avaliar nossa loja.',
+        description: 'Obrigado por nos avaliar.',
       });
     } catch (error: any) {
       console.error('Erro ao enviar avaliação:', error);
@@ -481,8 +487,9 @@ const ClientCard = () => {
           <div className="w-full max-w-md">
           <VipCard
             clientName={cliente.nome}
-              clientId={cliente.qr_code_digital || cliente.qr_code_fisico || ''}
+            clientId={cliente.qr_code_digital || cliente.qr_code_fisico || ''}
             storeName={cliente.loja_nome || 'Loja'}
+            vendedorName={cliente.vendedor_nome}
             validUntil={formatDate(cliente.data_validade)}
             status={getStatus(cliente)}
             memberSince={formatDate(cliente.data_ativacao)}
@@ -575,16 +582,16 @@ const ClientCard = () => {
               <CardHeader>
                 <CardTitle className="text-lg font-display flex items-center gap-2">
                   <Star className="w-5 h-5 text-vip-gold" />
-                  Avaliar Loja
+                  Avaliar Atendimento
                 </CardTitle>
                 <CardDescription>
-                  {jaAvaliou || avaliacaoEnviada 
+                  {jaAvaliouLoja && (jaAvaliouVendedor || !cliente.vendedor_id)
                     ? 'Sua avaliação foi enviada com sucesso!' 
-                    : 'Sua opinião é importante! Avalie sua experiência com a loja.'}
+                    : 'Sua opinião é importante! Avalie sua experiência.'}
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {jaAvaliou || avaliacaoEnviada ? (
+                {jaAvaliouLoja && (jaAvaliouVendedor || !cliente.vendedor_id) ? (
                   <motion.div
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
@@ -596,79 +603,110 @@ const ClientCard = () => {
                     <h3 className="font-semibold text-foreground mb-2">
                       Sua avaliação já foi enviada!
                     </h3>
-                    <div className="flex items-center justify-center gap-1 mb-2">
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <Star
-                          key={star}
-                          className={`w-5 h-5 ${
-                            star <= Math.ceil(avaliacaoNota / 2)
-                              ? 'fill-yellow-400 text-yellow-400'
-                              : 'text-muted-foreground'
-                          }`}
-                        />
-                      ))}
-                      <span className="ml-2 text-sm font-medium">({avaliacaoNota}/10)</span>
-                    </div>
-                    {avaliacaoComentario && (
-                      <p className="text-sm text-muted-foreground italic mb-4">
-                        "{avaliacaoComentario}"
-                      </p>
-                    )}
                     <p className="text-xs text-muted-foreground">
-                      Obrigado por sua avaliação!
+                      Obrigado por sua avaliação! Ela nos ajuda a melhorar.
                     </p>
                   </motion.div>
                 ) : (
-                    <div className="space-y-4">
-                      <div>
-                        <label className="text-sm font-medium mb-2 block">
-                          Nota (0 a 10)
-                        </label>
-                        <div className="flex items-center gap-2">
-                          {[1, 2, 3, 4, 5].map((star) => {
-                            const notaEstrela = star * 2;
-                            return (
-                              <button
-                                key={star}
-                                type="button"
-                                onClick={() => setAvaliacaoNota(notaEstrela)}
-                                className="focus:outline-none transition-transform hover:scale-110"
-                              >
-                                <Star
-                                  className={`w-8 h-8 transition-colors ${
-                                    avaliacaoNota >= notaEstrela
-                                      ? 'fill-yellow-400 text-yellow-400'
-                                      : avaliacaoNota >= notaEstrela - 1
-                                      ? 'fill-yellow-200 text-yellow-200'
-                                      : 'text-muted-foreground'
-                                  }`}
-                                />
-                              </button>
-                            );
-                          })}
-                          <span className="ml-2 text-sm font-medium text-muted-foreground">
-                            {avaliacaoNota > 0 ? `${avaliacaoNota}/10` : 'Selecione uma nota'}
-                          </span>
+                    <div className="space-y-6">
+                      
+                      {!jaAvaliouLoja && (
+                        <div className="space-y-4 pb-4 border-b border-border">
+                          <h4 className="font-semibold text-sm">Loja: {cliente.loja_nome}</h4>
+                          <div>
+                            <label className="text-xs font-medium mb-2 block">
+                              Nota da Loja (0 a 10)
+                            </label>
+                            <div className="flex items-center gap-2">
+                              {[1, 2, 3, 4, 5].map((star) => {
+                                const notaEstrela = star * 2;
+                                return (
+                                  <button
+                                    key={star}
+                                    type="button"
+                                    onClick={() => setAvaliacaoNotaLoja(notaEstrela)}
+                                    className="focus:outline-none transition-transform hover:scale-110"
+                                  >
+                                    <Star
+                                      className={`w-8 h-8 transition-colors ${
+                                        avaliacaoNotaLoja >= notaEstrela
+                                          ? 'fill-yellow-400 text-yellow-400'
+                                          : avaliacaoNotaLoja >= notaEstrela - 1
+                                          ? 'fill-yellow-200 text-yellow-200'
+                                          : 'text-muted-foreground'
+                                      }`}
+                                    />
+                                  </button>
+                                );
+                              })}
+                              <span className="ml-2 text-sm font-medium text-muted-foreground">
+                                {avaliacaoNotaLoja > 0 ? `${avaliacaoNotaLoja}/10` : 'Opcional'}
+                              </span>
+                            </div>
+                          </div>
+                          
+                          <div>
+                            <Textarea
+                              placeholder="Comentário sobre a loja (opcional)"
+                              value={avaliacaoComentarioLoja}
+                              onChange={(e) => setAvaliacaoComentarioLoja(e.target.value)}
+                              rows={2}
+                            />
+                          </div>
                         </div>
-                      </div>
+                      )}
 
-                      <div>
-                        <label className="text-sm font-medium mb-2 block">
-                          Comentário (opcional)
-                        </label>
-                        <Textarea
-                          placeholder="Conte-nos sobre sua experiência..."
-                          value={avaliacaoComentario}
-                          onChange={(e) => setAvaliacaoComentario(e.target.value)}
-                          rows={3}
-                        />
-                      </div>
+                      {cliente.vendedor_id && !jaAvaliouVendedor && (
+                        <div className="space-y-4 pb-2">
+                          <h4 className="font-semibold text-sm">Vendedor: {cliente.vendedor_nome || 'Atendente'}</h4>
+                          <div>
+                            <label className="text-xs font-medium mb-2 block">
+                              Nota do Vendedor (0 a 10)
+                            </label>
+                            <div className="flex items-center gap-2">
+                              {[1, 2, 3, 4, 5].map((star) => {
+                                const notaEstrela = star * 2;
+                                return (
+                                  <button
+                                    key={star}
+                                    type="button"
+                                    onClick={() => setAvaliacaoNotaVendedor(notaEstrela)}
+                                    className="focus:outline-none transition-transform hover:scale-110"
+                                  >
+                                    <Star
+                                      className={`w-8 h-8 transition-colors ${
+                                        avaliacaoNotaVendedor >= notaEstrela
+                                          ? 'fill-yellow-400 text-yellow-400'
+                                          : avaliacaoNotaVendedor >= notaEstrela - 1
+                                          ? 'fill-yellow-200 text-yellow-200'
+                                          : 'text-muted-foreground'
+                                      }`}
+                                    />
+                                  </button>
+                                );
+                              })}
+                              <span className="ml-2 text-sm font-medium text-muted-foreground">
+                                {avaliacaoNotaVendedor > 0 ? `${avaliacaoNotaVendedor}/10` : 'Opcional'}
+                              </span>
+                            </div>
+                          </div>
+                          
+                          <div>
+                            <Textarea
+                              placeholder="Comentário sobre o vendedor (opcional)"
+                              value={avaliacaoComentarioVendedor}
+                              onChange={(e) => setAvaliacaoComentarioVendedor(e.target.value)}
+                              rows={2}
+                            />
+                          </div>
+                        </div>
+                      )}
 
                       <Button
                         onClick={handleEnviarAvaliacao}
                         variant="vip"
                         className="w-full"
-                        disabled={avaliacaoNota === 0 || avaliacaoEnviando}
+                        disabled={(avaliacaoNotaLoja === 0 && avaliacaoNotaVendedor === 0) || avaliacaoEnviando}
                       >
                         {avaliacaoEnviando ? (
                           <>

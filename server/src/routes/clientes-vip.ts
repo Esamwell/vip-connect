@@ -103,9 +103,11 @@ router.get('/qr/:qrCode', async (req, res) => {
       `SELECT 
         cv.*,
         l.nome as loja_nome,
-        l.telefone as loja_telefone
+        l.telefone as loja_telefone,
+        v.nome as vendedor_nome
       FROM clientes_vip cv
       LEFT JOIN lojas l ON cv.loja_id = l.id
+      LEFT JOIN vendedores v ON cv.vendedor_id = v.id
       WHERE cv.id = $1`,
       [clienteId]
     );

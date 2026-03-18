@@ -19,6 +19,7 @@ interface VipCardProps {
   clientName: string;
   clientId: string;
   storeName: string;
+  vendedorName?: string;
   validUntil: string;
   status: 'active' | 'expiring' | 'expired' | 'renewed' | 'cancelled';
   memberSince: string;
@@ -63,7 +64,8 @@ const statusConfig = {
 export function VipCard({ 
   clientName, 
   clientId, 
-  storeName, 
+  storeName,
+  vendedorName, 
   validUntil, 
   status,
   memberSince,
@@ -154,9 +156,10 @@ export function VipCard({
           <p className={`text-2xl font-bold ${textColorClass} tracking-wide`}>
             {clientName}
           </p>
-          <p className={`text-sm ${textMutedClass} mt-1`}>
-            Loja: {storeName}
-          </p>
+          <div className={`flex items-center justify-between text-sm ${textMutedClass} mt-1`}>
+            <p>Loja: {storeName}</p>
+            {vendedorName && <p>Atendido por: {vendedorName}</p>}
+          </div>
           {/* Histórico de Veículos */}
           {veiculosHistorico && veiculosHistorico.length > 0 && (
             <div className={`mt-3 pt-3 border-t ${borderColorClass}`}>

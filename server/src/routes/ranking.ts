@@ -30,19 +30,75 @@ router.get('/lojas', async (req, res) => {
       posicao_ranking: index + 1, // Recalcular posição baseado na ordem já ordenada
     }));
     
-    console.log('[Ranking] Total de lojas com avaliações:', rankingComPosicao.length);
-    if (rankingComPosicao.length > 0) {
-      console.log('[Ranking] Top 3:', rankingComPosicao.slice(0, 3).map(l => ({
-        posicao: l.posicao_ranking,
-        nome: l.nome,
-        nota: l.nota_media,
-        avaliacoes: l.quantidade_avaliacoes
-      })));
-    }
-    
     res.json(rankingComPosicao);
   } catch (error: any) {
     console.error('Erro ao buscar ranking:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+/**
+ * GET /api/ranking/vendedores
+ * Retorna ranking público de vendedores
+ */
+router.get('/vendedores', async (req, res) => {
+  try {
+    const query = `
+      SELECT 
+        v.id,
+        v.nome,
+        v.loja_id,
+        l.nome as loja_nome,
+        COUNT(a.id)::integer as quantidade_avaliacoes,
+        COALESCE(AVG(a.nota), 0) as nota_media
+      FROM vendedores v
+      LEFT JOIN lojas l ON v.loja_id = l.id
+      LEFT JOIN avaliacoes a ON v.id = a.vendedor_id
+      WHERE v.ativo = true
+      GROUP BY v.id, v.nome, v.loja_id, l.nome
+      HAVING COUNT(a.id) > 0
+      ORDER BY nota_media DESC, quantidade_avaliacoes DESC, v.nome ASC
+    `;
+    const result = await pool.query(query);
+    const rankingComPosicao = result.rows.map((vendedor, index) => ({
+      ...vendedor,
+      nota_media: Number(vendedor.nota_media),
+      quantidade_avaliacoes: Number(vendedor.quantidade_avaliacoes),
+      posicao_ranking: index + 1,
+    }));
+    res.json(rankingComPosicao);
+  } catch (error: any) {
+    console.error('Erro ao buscar ranking de vendedores:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+/**
+ * GET /api/ranking/vendedores/:vendedor_id/avaliacoes
+ * Retorna avaliações públicas de um vendedor
+ */
+router.get('/vendedores/:vendedor_id/avaliacoes', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT 
+        a.id,
+        a.nota,
+        a.comentario,
+        a.created_at,
+        c.nome as cliente_nome,
+        CASE 
+          WHEN a.anonima THEN 'Cliente Anônimo'
+          ELSE COALESCE(c.nome, 'Cliente VIP')
+        END as nome_exibido
+      FROM avaliacoes a
+      LEFT JOIN clientes_vip c ON a.cliente_vip_id = c.id
+      WHERE a.vendedor_id = $1 AND a.status = 'aprovada'
+      ORDER BY a.created_at DESC`,
+      [req.params.vendedor_id]
+    );
+    res.json(result.rows);
+  } catch (error: any) {
+    console.error('Erro ao buscar avaliações do vendedor:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
@@ -107,7 +163,7 @@ router.get('/qr/:qrCode/avaliacao', async (req, res) => {
 
     // Buscar cliente por QR code
     const clienteResult = await pool.query(
-      'SELECT id, loja_id FROM clientes_vip WHERE qr_code_digital = $1 OR qr_code_fisico = $1',
+      'SELECT id, loja_id, vendedor_id FROM clientes_vip WHERE qr_code_digital = $1 OR qr_code_fisico = $1',
       [qrCode]
     );
 
@@ -117,14 +173,22 @@ router.get('/qr/:qrCode/avaliacao', async (req, res) => {
 
     const cliente = clienteResult.rows[0];
 
-    // Buscar avaliação existente
-    const avaliacaoResult = await pool.query(
-      'SELECT * FROM avaliacoes WHERE cliente_vip_id = $1 AND loja_id = $2',
+    // Buscar avaliações existentes (loja e vendedor)
+    const avaliacaoLojaResult = await pool.query(
+      'SELECT * FROM avaliacoes WHERE cliente_vip_id = $1 AND loja_id = $2 AND vendedor_id IS NULL',
       [cliente.id, cliente.loja_id]
     );
 
-    if (avaliacaoResult.rows.length > 0) {
-      res.json(avaliacaoResult.rows[0]);
+    const avaliacaoVendedorResult = await pool.query(
+      'SELECT * FROM avaliacoes WHERE cliente_vip_id = $1 AND vendedor_id = $2 AND loja_id IS NULL',
+      [cliente.id, cliente.vendedor_id]
+    );
+
+    if (avaliacaoLojaResult.rows.length > 0 || avaliacaoVendedorResult.rows.length > 0) {
+      res.json({
+        loja: avaliacaoLojaResult.rows.length > 0 ? avaliacaoLojaResult.rows[0] : null,
+        vendedor: avaliacaoVendedorResult.rows.length > 0 ? avaliacaoVendedorResult.rows[0] : null
+      });
     } else {
       res.json(null);
     }
@@ -144,42 +208,75 @@ router.post(
   authorize('cliente_vip', 'admin_mt', 'admin_shopping'),
   async (req, res) => {
     try {
-      const { cliente_vip_id, loja_id, nota, comentario } = req.body;
+      const { cliente_vip_id, loja_id, vendedor_id, nota, comentario, nota_loja, comentario_loja, nota_vendedor, comentario_vendedor } = req.body;
 
-      if (!cliente_vip_id || !loja_id || !nota) {
+      if (!cliente_vip_id || !loja_id) {
         return res.status(400).json({
-          error: 'Cliente VIP, loja e nota são obrigatórios',
+          error: 'Cliente VIP e Loja são obrigatórios',
         });
       }
 
-      if (nota < 0 || nota > 10) {
-        return res.status(400).json({
-          error: 'Nota deve estar entre 0 e 10',
-        });
+      // Compatibilidade antiga (nota) ou formato novo (nota_loja e nota_vendedor)
+      const nLoja = nota_loja !== undefined ? nota_loja : nota;
+      const cLoja = comentario_loja !== undefined ? comentario_loja : comentario;
+      
+      if (nLoja === undefined || nLoja < 0 || nLoja > 10) {
+        return res.status(400).json({ error: 'Nota da loja deve estar entre 0 e 10' });
       }
 
-      // Verificar se já existe avaliação deste cliente para esta loja
-      const existe = await pool.query(
-        'SELECT id FROM avaliacoes WHERE cliente_vip_id = $1 AND loja_id = $2',
-        [cliente_vip_id, loja_id]
-      );
+      // Iniciar transação p/ múltiplos inserts
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        
+        // 1. Inserir avaliação da Loja (se ainda não existir)
+        const existeLoja = await client.query(
+          'SELECT id FROM avaliacoes WHERE cliente_vip_id = $1 AND loja_id = $2 AND vendedor_id IS NULL',
+          [cliente_vip_id, loja_id]
+        );
 
-      if (existe.rows.length > 0) {
-        return res.status(400).json({
-          error: 'Você já avaliou esta loja. Cada cliente pode avaliar uma loja apenas uma vez.',
+        let resultLoja;
+        if (existeLoja.rows.length === 0) {
+          resultLoja = await client.query(
+            `INSERT INTO avaliacoes (
+              cliente_vip_id, loja_id, vendedor_id, nota, comentario, anonima
+            ) VALUES ($1, $2, NULL, $3, $4, $5)
+            RETURNING *`,
+            [cliente_vip_id, loja_id, nLoja, cLoja || null, false]
+          );
+        }
+
+        // 2. Inserir avaliação do Vendedor (se fornecida e se ele tiver vendedor)
+        let resultVendedor;
+        if (vendedor_id && nota_vendedor !== undefined && nota_vendedor >= 0 && nota_vendedor <= 10) {
+          const existeVendedor = await client.query(
+            'SELECT id FROM avaliacoes WHERE cliente_vip_id = $1 AND vendedor_id = $2 AND loja_id IS NULL',
+            [cliente_vip_id, vendedor_id]
+          );
+
+          if (existeVendedor.rows.length === 0) {
+            resultVendedor = await client.query(
+              `INSERT INTO avaliacoes (
+                cliente_vip_id, loja_id, vendedor_id, nota, comentario, anonima
+              ) VALUES ($1, NULL, $2, $3, $4, $5)
+              RETURNING *`,
+              [cliente_vip_id, vendedor_id, nota_vendedor, comentario_vendedor || null, false]
+            );
+          }
+        }
+
+        await client.query('COMMIT');
+        
+        res.status(201).json({
+          loja: resultLoja ? resultLoja.rows[0] : null,
+          vendedor: resultVendedor ? resultVendedor.rows[0] : null
         });
+      } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+      } finally {
+        client.release();
       }
-
-      // Criar avaliação (sempre com dados do cliente, não anônima)
-      const result = await pool.query(
-        `INSERT INTO avaliacoes (
-          cliente_vip_id, loja_id, nota, comentario, anonima
-        ) VALUES ($1, $2, $3, $4, $5)
-        RETURNING *`,
-        [cliente_vip_id, loja_id, nota, comentario || null, false]
-      );
-
-      res.status(201).json(result.rows[0]);
     } catch (error: any) {
       console.error('Erro ao criar avaliação:', error);
       res.status(500).json({ error: 'Erro interno do servidor' });
@@ -193,26 +290,29 @@ router.post(
  */
   router.post('/avaliacoes/qr', async (req, res) => {
     try {
-      const { qr_code, nota, comentario } = req.body;
+      const { qr_code, nota, comentario, nota_loja, comentario_loja, nota_vendedor, comentario_vendedor } = req.body;
 
-      console.log('Criando avaliação por QR Code:', { qr_code, nota, comentario });
+      console.log('Criando avaliação por QR Code:', req.body);
 
-      if (!qr_code || !nota) {
+      if (!qr_code) {
         return res.status(400).json({
-          error: 'QR Code e nota são obrigatórios',
+          error: 'QR Code é obrigatório',
         });
       }
 
-      if (nota < 0 || nota > 10) {
+      const nLoja = nota_loja !== undefined ? nota_loja : nota;
+      const cLoja = comentario_loja !== undefined ? comentario_loja : comentario;
+
+      if (nLoja === undefined || nLoja < 0 || nLoja > 10) {
         return res.status(400).json({
-          error: 'Nota deve estar entre 0 e 10',
+          error: 'Nota da loja deve estar entre 0 e 10',
         });
       }
 
-      // Buscar cliente por QR code
+      // Buscar cliente por QR code para descobrir ID, Loja e Vendedor
       console.log('Buscando cliente com QR Code:', qr_code);
       const clienteResult = await pool.query(
-        'SELECT id, loja_id FROM clientes_vip WHERE qr_code_digital = $1 OR qr_code_fisico = $1',
+        'SELECT id, loja_id, vendedor_id FROM clientes_vip WHERE qr_code_digital = $1 OR qr_code_fisico = $1',
         [qr_code]
       );
 
@@ -222,41 +322,67 @@ router.post(
       }
 
       const cliente = clienteResult.rows[0];
-      console.log('Cliente encontrado:', cliente.id, 'Loja:', cliente.loja_id);
+      console.log('Cliente encontrado:', cliente.id, 'Loja:', cliente.loja_id, 'Vendedor:', cliente.vendedor_id);
 
-    // Verificar se já existe avaliação deste cliente para esta loja
-    const existe = await pool.query(
-      'SELECT id FROM avaliacoes WHERE cliente_vip_id = $1 AND loja_id = $2',
-      [cliente.id, cliente.loja_id]
-    );
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
 
-    if (existe.rows.length > 0) {
-      return res.status(400).json({
-        error: 'Você já avaliou esta loja. Cada cliente pode avaliar uma loja apenas uma vez.',
-      });
-    }
+        // 1. Inserir Avaliação da Loja
+        const existeLoja = await client.query(
+          'SELECT id FROM avaliacoes WHERE cliente_vip_id = $1 AND loja_id = $2 AND vendedor_id IS NULL',
+          [cliente.id, cliente.loja_id]
+        );
 
-      // Criar avaliação (sempre com dados do cliente, não anônima)
-      console.log('Criando avaliação no banco de dados...');
-      const result = await pool.query(
-        `INSERT INTO avaliacoes (
-          cliente_vip_id, loja_id, nota, comentario, anonima
-        ) VALUES ($1, $2, $3, $4, $5)
-        RETURNING *`,
-        [cliente.id, cliente.loja_id, nota, comentario || null, false]
-      );
+        let resultLoja;
+        if (existeLoja.rows.length > 0) {
+          // Já avaliou a loja
+          console.log('Cliente já avaliou esta loja');
+        } else {
+          resultLoja = await client.query(
+            `INSERT INTO avaliacoes (
+              cliente_vip_id, loja_id, vendedor_id, nota, comentario, anonima
+            ) VALUES ($1, $2, NULL, $3, $4, $5)
+            RETURNING *`,
+            [cliente.id, cliente.loja_id, nLoja, cLoja || null, false]
+          );
+        }
 
-      console.log('Avaliação criada com sucesso:', result.rows[0].id);
-      res.status(201).json(result.rows[0]);
+        // 2. Inserir Avaliação do Vendedor
+        let resultVendedor;
+        if (cliente.vendedor_id && nota_vendedor !== undefined && nota_vendedor >= 0 && nota_vendedor <= 10) {
+          const existeVendedor = await client.query(
+            'SELECT id FROM avaliacoes WHERE cliente_vip_id = $1 AND vendedor_id = $2 AND loja_id IS NULL',
+            [cliente.id, cliente.vendedor_id]
+          );
+
+          if (existeVendedor.rows.length === 0) {
+            resultVendedor = await client.query(
+              `INSERT INTO avaliacoes (
+                cliente_vip_id, loja_id, vendedor_id, nota, comentario, anonima
+              ) VALUES ($1, NULL, $2, $3, $4, $5)
+              RETURNING *`,
+              [cliente.id, cliente.vendedor_id, nota_vendedor, comentario_vendedor || null, false]
+            );
+          }
+        }
+
+        await client.query('COMMIT');
+        res.status(201).json({
+          loja: resultLoja ? resultLoja.rows[0] : null,
+          vendedor: resultVendedor ? resultVendedor.rows[0] : null,
+          aviso: !resultLoja && !resultVendedor ? 'Você já avaliou este atendimento anteriormente.' : undefined
+        });
+
+      } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+      } finally {
+        client.release();
+      }
+
     } catch (error: any) {
       console.error('Erro ao criar avaliação por QR Code:', error);
-      console.error('Detalhes do erro:', {
-        message: error.message,
-        code: error.code,
-        detail: error.detail,
-        hint: error.hint,
-        stack: error.stack,
-      });
       res.status(500).json({ 
         error: 'Erro interno do servidor',
         message: process.env.NODE_ENV === 'development' ? error.message : undefined,
