@@ -600,7 +600,7 @@ export function ClienteVIPModal({ open, onOpenChange, clienteId }: ClienteVIPMod
                       : null;
 
                     return (
-                      <Card key={beneficio.id} className={isResgatado ? 'opacity-75 border-gray-300' : ''}>
+                      <Card key={beneficio.alocacao_id || beneficio.id} className={isResgatado ? 'opacity-75 border-gray-300' : ''}>
                         <CardContent className="p-4">
                           <div className="flex items-start justify-between gap-4">
                             <div className="flex-1">
@@ -613,8 +613,8 @@ export function ClienteVIPModal({ open, onOpenChange, clienteId }: ClienteVIPMod
                                 <h4 className={`font-semibold text-lg ${isResgatado ? 'text-gray-500 line-through' : ''}`}>
                                   {beneficio.nome}
                                 </h4>
-                                <Badge variant={beneficio.tipo === 'oficial' ? 'default' : 'outline'}>
-                                  {beneficio.tipo === 'oficial' ? 'Oficial' : 'Loja'}
+                                <Badge variant={beneficio.tipo === 'oficial' ? 'default' : beneficio.tipo === 'asi' ? 'destructive' : 'outline'}>
+                                  {beneficio.tipo === 'oficial' ? 'Oficial' : beneficio.tipo === 'asi' ? 'ASI' : 'Loja'}
                                 </Badge>
                                 {isResgatado && (
                                   <Badge variant="outline" className="bg-gray-100 text-gray-600">
@@ -631,6 +631,9 @@ export function ClienteVIPModal({ open, onOpenChange, clienteId }: ClienteVIPMod
                               <div className="flex gap-4 text-xs text-muted-foreground">
                                 {beneficio.tipo === 'oficial' && beneficio.parceiro_nome && (
                                   <span>Parceiro: {beneficio.parceiro_nome}</span>
+                                )}
+                                {beneficio.tipo === 'asi' && (
+                                  <span className="font-semibold text-red-600">Benefício Especial (ASI)</span>
                                 )}
                                 {beneficio.tipo === 'loja' && beneficio.loja_nome && (
                                   <span>Loja: {beneficio.loja_nome}</span>

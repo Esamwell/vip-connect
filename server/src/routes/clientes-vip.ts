@@ -174,13 +174,13 @@ router.get('/qr/:qrCode/beneficios', async (req, res) => {
     const beneficiosAlocados = await pool.query(
       `SELECT 
         cb.id as alocacao_id,
-        COALESCE(bo.id, bl.id) as id,
-        COALESCE(bo.nome, bl.nome) as nome,
-        COALESCE(bo.descricao, bl.descricao) as descricao,
+        COALESCE(bo.id, bl.id, ba.id) as id,
+        COALESCE(bo.nome, bl.nome, ba.nome) as nome,
+        COALESCE(bo.descricao, bl.descricao, ba.descricao) as descricao,
         cb.tipo,
         p.nome as parceiro_nome,
         l.nome as loja_nome,
-        COALESCE(bo.ativo, bl.ativo) as ativo,
+        COALESCE(bo.ativo, bl.ativo, ba.ativo) as ativo,
         cb.ativo as alocacao_ativa,
         cb.resgatado,
         cb.data_resgate,
@@ -188,12 +188,13 @@ router.get('/qr/:qrCode/beneficios', async (req, res) => {
       FROM clientes_beneficios cb
       LEFT JOIN beneficios_oficiais bo ON cb.beneficio_oficial_id = bo.id AND cb.tipo = 'oficial'
       LEFT JOIN beneficios_loja bl ON cb.beneficio_loja_id = bl.id AND cb.tipo = 'loja'
+      LEFT JOIN beneficios_asi ba ON cb.beneficio_asi_id = ba.id AND cb.tipo = 'asi'
       LEFT JOIN parceiros p ON bo.parceiro_id = p.id
       LEFT JOIN lojas l ON bl.loja_id = l.id
       LEFT JOIN users u ON cb.resgatado_por = u.id
       WHERE cb.cliente_vip_id = $1 
         AND cb.ativo = true
-        AND (bo.ativo = true OR bl.ativo = true)
+        AND (bo.ativo = true OR bl.ativo = true OR ba.ativo = true)
       ORDER BY cb.resgatado ASC, cb.tipo, nome`,
       [clienteId]
     );
@@ -234,11 +235,12 @@ router.get('/qr/:qrCode/validacoes', async (req, res) => {
         vb.data_validacao,
         vb.tipo,
         p.nome as parceiro_nome,
-        COALESCE(bo.nome, bl.nome) as beneficio_nome
+        COALESCE(bo.nome, bl.nome, ba.nome) as beneficio_nome
       FROM validacoes_beneficios vb
-      JOIN parceiros p ON vb.parceiro_id = p.id
+      LEFT JOIN parceiros p ON vb.parceiro_id = p.id
       LEFT JOIN beneficios_oficiais bo ON vb.beneficio_oficial_id = bo.id
       LEFT JOIN beneficios_loja bl ON vb.beneficio_loja_id = bl.id
+      LEFT JOIN beneficios_asi ba ON vb.beneficio_asi_id = ba.id
       WHERE vb.cliente_vip_id = $1
       ORDER BY vb.data_validacao DESC
       LIMIT 50`,
@@ -329,13 +331,13 @@ router.get(
       let beneficiosQuery = `
         SELECT 
           cb.id as alocacao_id,
-          COALESCE(bo.id, bl.id) as id,
-          COALESCE(bo.nome, bl.nome) as nome,
-          COALESCE(bo.descricao, bl.descricao) as descricao,
+          COALESCE(bo.id, bl.id, ba.id) as id,
+          COALESCE(bo.nome, bl.nome, ba.nome) as nome,
+          COALESCE(bo.descricao, bl.descricao, ba.descricao) as descricao,
           cb.tipo,
           p.nome as parceiro_nome,
           l.nome as loja_nome,
-          COALESCE(bo.ativo, bl.ativo) as ativo,
+          COALESCE(bo.ativo, bl.ativo, ba.ativo) as ativo,
           cb.ativo as alocacao_ativa,
           CASE 
             WHEN cb.tipo = 'oficial' AND bo.parceiro_id IS NOT NULL THEN
@@ -347,12 +349,13 @@ router.get(
         FROM clientes_beneficios cb
         LEFT JOIN beneficios_oficiais bo ON cb.beneficio_oficial_id = bo.id AND cb.tipo = 'oficial'
         LEFT JOIN beneficios_loja bl ON cb.beneficio_loja_id = bl.id AND cb.tipo = 'loja'
+        LEFT JOIN beneficios_asi ba ON cb.beneficio_asi_id = ba.id AND cb.tipo = 'asi'
         LEFT JOIN parceiros p ON bo.parceiro_id = p.id
         LEFT JOIN lojas l ON bl.loja_id = l.id
         LEFT JOIN users u ON cb.resgatado_por = u.id
         WHERE cb.cliente_vip_id = $1 
           AND cb.ativo = true
-          AND (bo.ativo = true OR bl.ativo = true)
+          AND (bo.ativo = true OR bl.ativo = true OR ba.ativo = true)
       `;
 
       const queryParams: any[] = [id];
@@ -425,9 +428,10 @@ router.post(
 
       // Verificar se a alocação existe e pertence ao cliente
       const alocacaoCheck = await pool.query(
-        `SELECT cb.id, cb.resgatado, cb.data_resgate, cb.tipo, bo.parceiro_id
+        `SELECT cb.id, cb.resgatado, cb.data_resgate, cb.tipo, bo.parceiro_id, ba.id as beneficio_asi_id
          FROM clientes_beneficios cb
          LEFT JOIN beneficios_oficiais bo ON cb.beneficio_oficial_id = bo.id
+         LEFT JOIN beneficios_asi ba ON cb.beneficio_asi_id = ba.id
          WHERE cb.id = $1 AND cb.cliente_vip_id = $2`,
         [alocacaoId, id]
       );
