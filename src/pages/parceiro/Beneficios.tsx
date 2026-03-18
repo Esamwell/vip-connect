@@ -47,6 +47,8 @@ export default function ParceiroBeneficios() {
     } finally {
       setLoading(false);
     }
+  };
+
   const handleEditClick = (beneficio: BeneficioOficial) => {
     setSelectedBeneficio(beneficio);
     setModalEditOpen(true);
