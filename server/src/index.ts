@@ -10,6 +10,7 @@ import beneficiosRoutes from './routes/beneficios';
 import chamadosRoutes from './routes/chamados';
 import rankingRoutes from './routes/ranking';
 import relatoriosRoutes from './routes/relatorios';
+import beneficiosAsiRoutes from './routes/beneficios-asi'; // Adicionado
 import renovacaoRoutes from './routes/renovacao';
 import lojasRoutes from './routes/lojas';
 import parceirosRoutes from './routes/parceiros';
@@ -51,6 +52,7 @@ app.use('/api/beneficios', beneficiosRoutes);
 app.use('/api/chamados', chamadosRoutes);
 app.use('/api/ranking', rankingRoutes);
 app.use('/api/relatorios', relatoriosRoutes);
+app.use('/api/beneficios-asi', beneficiosAsiRoutes); // Adicionado
 app.use('/api/renovacao', renovacaoRoutes);
 app.use('/api/lojas', lojasRoutes);
 app.use('/api/parceiros', parceirosRoutes);

@@ -18,3 +18,32 @@ WHERE l.ativo = true
 GROUP BY l.id, l.nome
 HAVING COUNT(a.id) > 0
 ORDER BY nota_media DESC, quantidade_avaliacoes DESC;
+
+
+-- 3. Adicionar Tipo "asi" e tabelas para a nova categoria de Benefícios ASI
+ALTER TYPE tipo_beneficio ADD VALUE IF NOT EXISTS 'asi';
+
+CREATE TABLE IF NOT EXISTS beneficios_asi (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    nome VARCHAR(255) NOT NULL,
+    descricao TEXT,
+    ativo BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Alterando a tabela que salva o benefício nos clientes para suportar o ID de benefício ASI
+ALTER TABLE clientes_beneficios ADD COLUMN IF NOT EXISTS beneficio_asi_id UUID REFERENCES beneficios_asi(id) ON DELETE CASCADE;
+
+-- Atualizar enum no check se necessário (Postgres pode permitir se não houver constraint rígida na estrutura)
+-- Relaxar validações de constraint, caso haja na tabela clientes_beneficios ou validacoes_beneficios
+ALTER TABLE validacoes_beneficios ADD COLUMN IF NOT EXISTS beneficio_asi_id UUID REFERENCES beneficios_asi(id) ON DELETE SET NULL;
+ALTER TABLE validacoes_beneficios DROP CONSTRAINT IF EXISTS check_beneficio_preenchido;
+
+ALTER TABLE validacoes_beneficios 
+ADD CONSTRAINT check_beneficio_preenchido 
+CHECK (
+    (beneficio_oficial_id IS NOT NULL AND beneficio_loja_id IS NULL AND beneficio_asi_id IS NULL) OR
+    (beneficio_oficial_id IS NULL AND beneficio_loja_id IS NOT NULL AND beneficio_asi_id IS NULL) OR
+    (beneficio_oficial_id IS NULL AND beneficio_loja_id IS NULL AND beneficio_asi_id IS NOT NULL)
+);

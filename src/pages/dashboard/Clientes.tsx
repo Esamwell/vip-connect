@@ -19,6 +19,8 @@ import { ptBR } from 'date-fns/locale/pt-BR';
 import { useNavigate } from 'react-router-dom';
 import { NovoClienteModal } from '@/components/modals/NovoClienteModal';
 import { ClienteVIPModal } from '@/components/modals/ClienteVIPModal';
+import { VincularBeneficioAsiModal } from '@/components/modals/VincularBeneficioAsiModal';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function Clientes() {
   const [clientes, setClientes] = useState<ClienteVip[]>([]);
@@ -26,8 +28,11 @@ export default function Clientes() {
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [clienteModalOpen, setClienteModalOpen] = useState(false);
+  const [vincularAsiModalOpen, setVincularAsiModalOpen] = useState(false);
   const [clienteSelecionado, setClienteSelecionado] = useState<string | null>(null);
+  const [clienteObjSelecionado, setClienteObjSelecionado] = useState<ClienteVip | null>(null);
   const [exporting, setExporting] = useState(false);
+  const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -187,6 +192,13 @@ export default function Clientes() {
         clienteId={clienteSelecionado}
       />
 
+      <VincularBeneficioAsiModal
+        open={vincularAsiModalOpen}
+        onOpenChange={setVincularAsiModalOpen}
+        cliente={clienteObjSelecionado}
+        onSuccess={handleNovoClienteSuccess}
+      />
+
       <Card>
         <CardHeader>
           <div className="flex items-center gap-4">
@@ -233,17 +245,31 @@ export default function Clientes() {
                       })}
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setClienteSelecionado(cliente.id);
-                          setClienteModalOpen(true);
-                        }}
-                      >
-                        <Eye className="w-4 h-4 mr-2" />
-                        Ver
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setClienteSelecionado(cliente.id);
+                            setClienteModalOpen(true);
+                          }}
+                        >
+                          <Eye className="w-4 h-4 mr-2" />
+                          Ver
+                        </Button>
+                        {(user?.role === 'admin_mt' || user?.role === 'admin_shopping') && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setClienteObjSelecionado(cliente);
+                              setVincularAsiModalOpen(true);
+                            }}
+                          >
+                            Dar Benefício ASI
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))

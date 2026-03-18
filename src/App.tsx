@@ -22,6 +22,7 @@ import Renovacoes from "./pages/dashboard/Renovacoes";
 import Lojas from "./pages/dashboard/Lojas";
 import Parceiros from "./pages/dashboard/Parceiros";
 import Beneficios from "./pages/dashboard/Beneficios";
+import BeneficiosAsi from "./pages/dashboard/BeneficiosASI";
 import Configuracoes from "./pages/dashboard/Configuracoes";
 import Vendedores from "./pages/dashboard/Vendedores";
 import Usuarios from "./pages/dashboard/Usuarios";
@@ -296,6 +297,16 @@ const App = () => (
                 <ProtectedRoute allowedRoles={['admin_mt', 'lojista']}>
                   <DashboardLayout>
                     <Beneficios />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/beneficios-asi"
+              element={
+                <ProtectedRoute allowedRoles={['admin_mt', 'admin_shopping']}>
+                  <DashboardLayout>
+                    <BeneficiosAsi />
                   </DashboardLayout>
                 </ProtectedRoute>
               }

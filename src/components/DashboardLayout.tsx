@@ -168,6 +168,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           section: 'gestao',
         },
         {
+          title: 'Benefícios ASI',
+          icon: Gift,
+          path: '/dashboard/beneficios-asi',
+          roles: ['admin_mt'],
+          section: 'gestao',
+        },
+        {
           title: 'Chamados',
           icon: MessageSquare,
           path: '/dashboard/chamados',
@@ -233,6 +240,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           title: 'Vendedores',
           icon: UserCheck,
           path: '/dashboard/vendedores',
+          roles: ['admin_shopping'],
+          section: 'gestao',
+        },
+        {
+          title: 'Benefícios ASI',
+          icon: Gift,
+          path: '/dashboard/beneficios-asi',
           roles: ['admin_shopping'],
           section: 'gestao',
         },

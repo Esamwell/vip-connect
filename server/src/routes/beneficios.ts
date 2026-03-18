@@ -381,8 +381,20 @@ router.post(
          RETURNING *`,
         [nome, descricao || null, parceiroId]
       );
+      
+      const novoBeneficio = result.rows[0];
 
-      res.status(201).json(result.rows[0]);
+      // Benefício de Parceiro Automático: Distribuir imediatamente para todos os clientes VIPs 'ativo'
+      console.log(`[Benefício Parceiro] Distribuindo o benefício ${novoBeneficio.id} para clientes ativos...`);
+      await pool.query(
+        `INSERT INTO clientes_beneficios (cliente_vip_id, beneficio_oficial_id, tipo, ativo)
+         SELECT id, $1, 'oficial', true 
+         FROM clientes_vip 
+         WHERE status = 'ativo'`,
+        [novoBeneficio.id]
+      );
+
+      res.status(201).json(novoBeneficio);
     } catch (error: any) {
       console.error('Erro ao criar benefício oficial:', error);
       res.status(500).json({ error: 'Erro interno do servidor' });

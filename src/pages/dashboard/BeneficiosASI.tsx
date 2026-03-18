@@ -12,23 +12,23 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { api } from '@/services/api';
-import { NovoBeneficioModal } from '@/components/modals/NovoBeneficioModal';
-import { EditarBeneficioModal } from '@/components/modals/EditarBeneficioModal';
+import { NovoBeneficioAsiModal } from '@/components/modals/NovoBeneficioAsiModal';
+import { EditarBeneficioAsiModal } from '@/components/modals/EditarBeneficioAsiModal';
 import { useToast } from '@/hooks/use-toast';
 
-interface BeneficioOficial {
+export interface BeneficioAsi {
   id: string;
   nome: string;
   descricao?: string;
   ativo: boolean;
 }
 
-export default function ParceiroBeneficios() {
-  const [beneficios, setBeneficios] = useState<BeneficioOficial[]>([]);
+export default function AdminBeneficiosAsi() {
+  const [beneficios, setBeneficios] = useState<BeneficioAsi[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalEditOpen, setModalEditOpen] = useState(false);
-  const [selectedBeneficio, setSelectedBeneficio] = useState<BeneficioOficial | null>(null);
+  const [selectedBeneficio, setSelectedBeneficio] = useState<BeneficioAsi | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -38,25 +38,26 @@ export default function ParceiroBeneficios() {
   const loadBeneficios = async () => {
     try {
       setLoading(true);
-      // Buscar apenas benefícios oficiais do parceiro logado
-      const data = await api.get<BeneficioOficial[]>('/beneficios/oficiais').catch(() => []);
+      const data = await api.get<BeneficioAsi[]>('/beneficios-asi').catch(() => []);
       setBeneficios(Array.isArray(data) ? data : []);
     } catch (error) {
-      console.error('Erro ao carregar benefícios:', error);
+      console.error('Erro ao carregar benefícios ASI:', error);
       setBeneficios([]);
     } finally {
       setLoading(false);
     }
-  const handleEditClick = (beneficio: BeneficioOficial) => {
+  };
+
+  const handleEditClick = (beneficio: BeneficioAsi) => {
     setSelectedBeneficio(beneficio);
     setModalEditOpen(true);
   };
 
   const handleDelete = async (id: string, nome: string) => {
-    if (!window.confirm(`Tem certeza que deseja excluir o benefício "${nome}"?`)) return;
+    if (!window.confirm(`Tem certeza que deseja inativar/excluir o benefício "${nome}"?`)) return;
 
     try {
-      await api.delete(`/beneficios/oficiais/${id}`);
+      await api.delete(`/beneficios-asi/${id}`);
       toast({
         title: 'Sucesso',
         description: 'Benefício excluído com sucesso.',
@@ -71,25 +72,24 @@ export default function ParceiroBeneficios() {
     }
   };
 
-
   return (
     <div className="w-full space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-[-0.03em]">Benefícios Oficiais</h1>
+          <h1 className="text-3xl font-bold tracking-[-0.03em]">Benefícios ASI</h1>
           <p className="text-muted-foreground mt-1">
-            Visualize seus benefícios oficiais do programa VIP
+            Gerencie os benefícios institucionais exclusivos que serão distribuídos aos VIPs.
           </p>
         </div>
         <Button onClick={() => setModalOpen(true)} className="gap-2">
           <Plus className="w-4 h-4" />
-          Novo Benefício
+          Novo Benefício ASI
         </Button>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Lista de Benefícios</CardTitle>
+          <CardTitle>Lista de Benefícios (ASI Institucional)</CardTitle>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -98,7 +98,7 @@ export default function ParceiroBeneficios() {
             </div>
           ) : beneficios.length === 0 ? (
             <div className="py-8 text-center text-muted-foreground">
-              Nenhum benefício cadastrado ainda
+              Nenhum benefício ASI cadastrado ainda
             </div>
           ) : (
             <Table>
@@ -148,22 +148,18 @@ export default function ParceiroBeneficios() {
         </CardContent>
       </Card>
 
-      <NovoBeneficioModal 
+      <NovoBeneficioAsiModal 
         open={modalOpen} 
         onOpenChange={setModalOpen}
         onSuccess={loadBeneficios}
-        apenasOficiais={true}
       />
 
-      <EditarBeneficioModal
+      <EditarBeneficioAsiModal
         open={modalEditOpen}
         onOpenChange={setModalEditOpen}
         beneficio={selectedBeneficio}
         onSuccess={loadBeneficios}
-        tipo="oficial"
       />
     </div>
   );
 }
-
-
