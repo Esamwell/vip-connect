@@ -306,6 +306,123 @@ router.get('/historico/:vendedorId', authenticate, async (req, res) => {
       });
     }
 
+    const result = await pool.query(
+      `SELECT prr.*, pr.nome as premiacao_nome, pr.tipo as premiacao_tipo
+       FROM premiacoes_recebidas prr
+       JOIN premiacoes_ranking pr ON prr.premiacao_id = pr.id
+       WHERE prr.vendedor_id = $1
+       ORDER BY prr.periodo DESC
+       LIMIT $2`,
+      [vendedorId, meses]
+    );
+
+    res.json(result.rows);
+  } catch (error: any) {
+    console.error('Erro ao obter histórico do vendedor:', error);
+    res.status(500).json({
+      error: 'Erro interno do servidor'
+    });
+  }
+});
+
+/**
+ * GET /api/ranking-vendedores/metas/:vendedorId
+ * Calcular o desempenho de metas do vendedor no período faturado
+ */
+router.get('/metas/:vendedorId', authenticate, async (req, res) => {
+  try {
+    const { vendedorId } = req.params;
+    const { periodo = 'mes' } = req.query;
+
+    // Verificar vendedor e permissões
+    let checkQuery = `
+      SELECT v.*, l.user_id as loja_user_id 
+      FROM vendedores v 
+      JOIN lojas l ON v.loja_id = l.id 
+      WHERE v.id = $1 AND v.ativo = true
+    `;
+    const checkResult = await pool.query(checkQuery, [vendedorId]);
+
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Vendedor não encontrado' });
+    }
+
+    const vendedor = checkResult.rows[0];
+
+    const isOwnProfile = req.user!.role === 'vendedor' && req.user!.userId === vendedor.user_id;
+    const isLojista = req.user!.role === 'lojista' && vendedor.loja_user_id === req.user!.userId;
+    const isAdmin = ['admin_mt', 'admin_shopping'].includes(req.user!.role);
+
+    if (!isOwnProfile && !isLojista && !isAdmin) {
+      return res.status(403).json({ error: 'Sem permissão para visualizar as metas deste vendedor' });
+    }
+
+    // Filtragem de Período para somar vendas reais
+    let whereClause = 'WHERE vendedor_id = $1';
+    let params: any[] = [vendedorId];
+
+    switch (periodo) {
+      case 'hoje':
+        whereClause += ' AND data_venda = CURRENT_DATE';
+        break;
+      case 'semana':
+        whereClause += ' AND data_venda >= CURRENT_DATE - INTERVAL \'7 days\'';
+        break;
+      case 'mes':
+        whereClause += ' AND data_venda >= DATE_TRUNC(\'month\', CURRENT_DATE)';
+        break;
+      case 'trimestre':
+        whereClause += ' AND data_venda >= DATE_TRUNC(\'quarter\', CURRENT_DATE)';
+        break;
+      case 'ano':
+        whereClause += ' AND data_venda >= DATE_TRUNC(\'year\', CURRENT_DATE)';
+        break;
+    }
+
+    const perfQuery = `
+      SELECT 
+        COUNT(id)::integer as vendas_realizadas,
+        COALESCE(SUM(valor), 0)::numeric as valor_total_vendas
+      FROM vendas
+      ${whereClause}
+    `;
+    const perfResult = await pool.query(perfQuery, params);
+    const { vendas_realizadas, valor_total_vendas } = perfResult.rows[0];
+
+    const vRealizadas = parseInt(vendas_realizadas) || 0;
+    const vTotal = parseFloat(valor_total_vendas) || 0;
+    const metaVendas = parseInt(vendedor.meta_vendas) || 1; // fix pra devisões por 0
+    const metaValor = parseFloat(vendedor.meta_vendas_valor) || 1;
+
+    let percentVendas = Math.round((vRealizadas / metaVendas) * 100);
+    let percentValor = Math.round((vTotal / metaValor) * 100);
+    
+    // Fallbacks para as barras de progresso
+    if (vendedor.meta_vendas == 0) percentVendas = vRealizadas > 0 ? 100 : 0;
+    if (vendedor.meta_vendas_valor == 0) percentValor = vTotal > 0 ? 100 : 0;
+
+    res.json({
+      periodo,
+      vendedor: {
+        id: vendedor.id,
+        nome: vendedor.nome,
+        meta_vendas: parseInt(vendedor.meta_vendas) || 0,
+        meta_vendas_valor: parseFloat(vendedor.meta_vendas_valor) || 0
+      },
+      desempenho: {
+        vendas_realizadas: vRealizadas,
+        valor_total_vendas: vTotal,
+        meta_vendas_percentual: Math.min(percentVendas, 100),
+        meta_valor_percentual: Math.min(percentValor, 100)
+      }
+    });
+
+  } catch (error: any) {
+    console.error('Erro ao obter as metas do vendedor:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
     // Histórico de vendas por mês
     const historicoVendasQuery = `
       SELECT 
