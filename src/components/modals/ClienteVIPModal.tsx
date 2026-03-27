@@ -73,6 +73,7 @@ export function ClienteVIPModal({ open, onOpenChange, clienteId }: ClienteVIPMod
   const [todosBeneficios, setTodosBeneficios] = useState<BeneficioParaAlocar[]>([]);
   const [beneficiosSelecionados, setBeneficiosSelecionados] = useState<Set<string>>(new Set());
   const [alocando, setAlocando] = useState(false);
+  const [resgatandoBeneficio, setResgatandoBeneficio] = useState<string | null>(null);
   const [showRenovarModal, setShowRenovarModal] = useState(false);
   const [renovando, setRenovando] = useState(false);
   const [novoVeiculo, setNovoVeiculo] = useState({
@@ -192,6 +193,7 @@ export function ClienteVIPModal({ open, onOpenChange, clienteId }: ClienteVIPMod
     if (!clienteId) return;
 
     try {
+      setResgatandoBeneficio(alocacaoId);
       await api.post(`/clientes-vip/${clienteId}/beneficios/${alocacaoId}/resgatar`);
 
       // Recarregar dados do cliente para atualizar lista de benefícios
@@ -208,6 +210,8 @@ export function ClienteVIPModal({ open, onOpenChange, clienteId }: ClienteVIPMod
         description: error.response?.data?.error || 'Não foi possível resgatar o benefício.',
         variant: 'destructive',
       });
+    } finally {
+      setResgatandoBeneficio(null);
     }
   };
 
@@ -279,6 +283,10 @@ export function ClienteVIPModal({ open, onOpenChange, clienteId }: ClienteVIPMod
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Status do Cliente</DialogTitle>
+            <DialogDescription>Aguardando carregamento ou cliente não encontrado.</DialogDescription>
+          </DialogHeader>
           {loading ? (
             <div className="flex items-center justify-center h-64">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
