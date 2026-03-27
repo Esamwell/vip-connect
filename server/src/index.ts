@@ -20,6 +20,7 @@ import vouchersVendedorRoutes from './routes/vouchers-vendedor';
 import rankingVendedoresRoutes from './routes/ranking-vendedores';
 import premiacoesRoutes from './routes/premiacoes';
 import usuariosRoutes from './routes/usuarios';
+import permissoesRoutes from './routes/permissoes';
 
 // Carregar variáveis de ambiente
 dotenv.config();
@@ -62,6 +63,8 @@ app.use('/api/vouchers-vendedor', vouchersVendedorRoutes);
 app.use('/api/ranking-vendedores', rankingVendedoresRoutes);
 app.use('/api/premiacoes', premiacoesRoutes);
 app.use('/api/usuarios', usuariosRoutes);
+app.use('/api/permissoes', permissoesRoutes);
+
 
 // Rota 404
 app.use((req, res) => {

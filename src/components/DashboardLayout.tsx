@@ -116,234 +116,149 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     return dataCriacao >= seteDiasAtras && !n.enviada;
   }).length;
 
+  const [userPermissions, setUserPermissions] = useState<string[]>([]);
+  const [loadingPermissions, setLoadingPermissions] = useState(true);
+
+  useEffect(() => {
+    const fetchPermissions = async () => {
+      if (!user?.role) return;
+      try {
+        const data = await api.get<Record<string, string[]>>('/permissoes');
+        setUserPermissions(data[user.role] || []);
+      } catch (error) {
+        console.error('Erro ao buscar permissões:', error);
+      } finally {
+        setLoadingPermissions(false);
+      }
+    };
+    fetchPermissions();
+  }, [user?.role]);
+
   const getMenuItems = (): MenuItemType[] => {
     const role = user?.role;
+    if (!role) return [];
 
-    const baseItems: MenuItemType[] = [
+    const allItems: (MenuItemType & { id: string })[] = [
       {
+        id: 'principal:dashboard',
         title: 'Dashboard',
         icon: LayoutDashboard,
         path: '/dashboard',
         roles: ['admin_mt', 'admin_shopping', 'lojista'],
         section: 'principal',
       },
+      {
+        id: 'gestao:clientes',
+        title: role === 'lojista' ? 'Meus Clientes' : 'Clientes VIP',
+        icon: Users,
+        path: '/dashboard/clientes',
+        roles: ['admin_mt', 'admin_shopping', 'lojista'],
+        section: 'gestao',
+      },
+      {
+        id: 'gestao:lojas',
+        title: 'Lojas',
+        icon: Store,
+        path: '/dashboard/lojas',
+        roles: ['admin_mt', 'admin_shopping'],
+        section: 'gestao',
+      },
+      {
+        id: 'gestao:parceiros',
+        title: 'Parceiros',
+        icon: Handshake,
+        path: '/dashboard/parceiros',
+        roles: ['admin_mt'],
+        section: 'gestao',
+      },
+      {
+        id: 'gestao:vendedores',
+        title: 'Vendedores',
+        icon: UserCheck,
+        path: '/dashboard/vendedores',
+        roles: ['admin_mt', 'admin_shopping', 'lojista'],
+        section: 'gestao',
+      },
+      {
+        id: 'gestao:beneficios',
+        title: 'Benefícios',
+        icon: Gift,
+        path: '/dashboard/beneficios',
+        roles: ['admin_mt', 'lojista'],
+        section: 'gestao',
+      },
+      {
+        id: 'gestao:beneficios-asi',
+        title: 'Benefícios ASI',
+        icon: Gift,
+        path: '/dashboard/beneficios-asi',
+        roles: ['admin_mt', 'admin_shopping'],
+        section: 'gestao',
+      },
+      {
+        id: 'atendimento:chamados',
+        title: 'Chamados',
+        icon: MessageSquare,
+        path: '/dashboard/chamados',
+        roles: ['admin_mt', 'admin_shopping', 'lojista'],
+        section: 'atendimento',
+      },
+      {
+        id: 'analise:ranking',
+        title: 'Ranking',
+        icon: TrendingUp,
+        path: '/dashboard/ranking',
+        roles: ['admin_mt', 'admin_shopping', 'lojista'],
+        section: 'analise',
+      },
+      {
+        id: 'analise:relatorios',
+        title: 'Relatórios',
+        icon: BarChart3,
+        path: '/dashboard/relatorios',
+        roles: ['admin_mt', 'admin_shopping', 'lojista'],
+        section: 'analise',
+      },
+      {
+        id: 'atendimento:renovacoes',
+        title: 'Renovações',
+        icon: Calendar,
+        path: '/dashboard/renovacoes',
+        roles: ['admin_mt', 'admin_shopping', 'lojista'],
+        section: 'atendimento',
+      },
+      {
+        id: 'sistema:configuracoes',
+        title: 'Configurações',
+        icon: Settings,
+        path: '/dashboard/configuracoes',
+        roles: ['admin_mt'],
+        section: 'sistema',
+      },
+      {
+        id: 'sistema:usuarios',
+        title: 'Usuários',
+        icon: Users,
+        path: '/dashboard/usuarios',
+        roles: ['admin_mt', 'admin_shopping'],
+        section: 'sistema',
+      },
+      {
+        id: 'sistema:permissoes',
+        title: 'Permissões',
+        icon: Shield,
+        path: '/dashboard/permissoes',
+        roles: ['admin_mt'],
+        section: 'sistema',
+      },
     ];
 
-    if (role === 'admin_mt') {
-      return [
-        ...baseItems,
-        {
-          title: 'Clientes VIP',
-          icon: Users,
-          path: '/dashboard/clientes',
-          roles: ['admin_mt'],
-          section: 'gestao',
-        },
-        {
-          title: 'Lojas',
-          icon: Store,
-          path: '/dashboard/lojas',
-          roles: ['admin_mt'],
-          section: 'gestao',
-        },
-        {
-          title: 'Parceiros',
-          icon: Handshake,
-          path: '/dashboard/parceiros',
-          roles: ['admin_mt'],
-          section: 'gestao',
-        },
-        {
-          title: 'Vendedores',
-          icon: UserCheck,
-          path: '/dashboard/vendedores',
-          roles: ['admin_mt'],
-          section: 'gestao',
-        },
-        {
-          title: 'Benefícios',
-          icon: Gift,
-          path: '/dashboard/beneficios',
-          roles: ['admin_mt'],
-          section: 'gestao',
-        },
-        {
-          title: 'Benefícios ASI',
-          icon: Gift,
-          path: '/dashboard/beneficios-asi',
-          roles: ['admin_mt'],
-          section: 'gestao',
-        },
-        {
-          title: 'Chamados',
-          icon: MessageSquare,
-          path: '/dashboard/chamados',
-          roles: ['admin_mt', 'admin_shopping', 'lojista'],
-          section: 'atendimento',
-        },
-        {
-          title: 'Ranking',
-          icon: TrendingUp,
-          path: '/dashboard/ranking',
-          roles: ['admin_mt', 'admin_shopping', 'lojista'],
-          section: 'analise',
-        },
-        {
-          title: 'Relatórios',
-          icon: BarChart3,
-          path: '/dashboard/relatorios',
-          roles: ['admin_mt', 'admin_shopping', 'lojista'],
-          section: 'analise',
-        },
-        {
-          title: 'Renovações',
-          icon: Calendar,
-          path: '/dashboard/renovacoes',
-          roles: ['admin_mt', 'admin_shopping', 'lojista'],
-          section: 'atendimento',
-        },
-        {
-          title: 'Configurações',
-          icon: Settings,
-          path: '/dashboard/configuracoes',
-          roles: ['admin_mt'],
-          section: 'sistema',
-        },
-        {
-          title: 'Usuários',
-          icon: Users,
-          path: '/dashboard/usuarios',
-          roles: ['admin_mt'],
-          section: 'sistema',
-        },
-      ];
-    }
+    if (role === 'admin_mt') return allItems;
 
-    if (role === 'admin_shopping') {
-      return [
-        ...baseItems,
-        {
-          title: 'Clientes VIP',
-          icon: Users,
-          path: '/dashboard/clientes',
-          roles: ['admin_shopping'],
-          section: 'gestao',
-        },
-        {
-          title: 'Lojas',
-          icon: Store,
-          path: '/dashboard/lojas',
-          roles: ['admin_shopping'],
-          section: 'gestao',
-        },
-        {
-          title: 'Vendedores',
-          icon: UserCheck,
-          path: '/dashboard/vendedores',
-          roles: ['admin_shopping'],
-          section: 'gestao',
-        },
-        {
-          title: 'Benefícios ASI',
-          icon: Gift,
-          path: '/dashboard/beneficios-asi',
-          roles: ['admin_shopping'],
-          section: 'gestao',
-        },
-        {
-          title: 'Chamados',
-          icon: MessageSquare,
-          path: '/dashboard/chamados',
-          roles: ['admin_shopping'],
-          section: 'atendimento',
-        },
-        {
-          title: 'Ranking',
-          icon: TrendingUp,
-          path: '/dashboard/ranking',
-          roles: ['admin_shopping'],
-          section: 'analise',
-        },
-        {
-          title: 'Relatórios',
-          icon: BarChart3,
-          path: '/dashboard/relatorios',
-          roles: ['admin_shopping'],
-          section: 'analise',
-        },
-        {
-          title: 'Renovações',
-          icon: Calendar,
-          path: '/dashboard/renovacoes',
-          roles: ['admin_shopping'],
-          section: 'atendimento',
-        },
-        {
-          title: 'Usuários',
-          icon: Users,
-          path: '/dashboard/usuarios',
-          roles: ['admin_shopping'],
-          section: 'sistema',
-        },
-      ];
-    }
-
-    if (role === 'lojista') {
-      return [
-        ...baseItems,
-        {
-          title: 'Meus Clientes',
-          icon: Users,
-          path: '/dashboard/clientes',
-          roles: ['lojista'],
-          section: 'gestao',
-        },
-        {
-          title: 'Vendedores',
-          icon: UserCheck,
-          path: '/dashboard/vendedores',
-          roles: ['lojista'],
-          section: 'gestao',
-        },
-        {
-          title: 'Benefícios',
-          icon: Gift,
-          path: '/dashboard/beneficios',
-          roles: ['lojista'],
-          section: 'gestao',
-        },
-        {
-          title: 'Chamados',
-          icon: MessageSquare,
-          path: '/dashboard/chamados',
-          roles: ['lojista'],
-          section: 'atendimento',
-        },
-        {
-          title: 'Ranking',
-          icon: TrendingUp,
-          path: '/dashboard/ranking',
-          roles: ['lojista'],
-          section: 'analise',
-        },
-        {
-          title: 'Relatórios',
-          icon: BarChart3,
-          path: '/dashboard/relatorios',
-          roles: ['lojista'],
-          section: 'analise',
-        },
-        {
-          title: 'Renovações',
-          icon: Calendar,
-          path: '/dashboard/renovacoes',
-          roles: ['lojista'],
-          section: 'atendimento',
-        },
-      ];
-    }
-
-    return baseItems;
+    return allItems.filter(item => {
+      if (item.id === 'principal:dashboard') return true;
+      return userPermissions.includes(item.id);
+    });
   };
 
   const menuItems = getMenuItems();
