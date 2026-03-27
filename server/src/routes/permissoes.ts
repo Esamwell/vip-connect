@@ -74,7 +74,30 @@ router.get('/', authenticate, authorize('admin_mt'), async (req, res) => {
 });
 
 /**
+ * GET /api/permissoes/my
+ * Retorna as permissões do usuário logado
+ */
+router.get('/my', authenticate, async (req, res) => {
+  try {
+    await ensureTableExists();
+    if (!req.user?.role) {
+      return res.status(400).json({ error: 'Papel do usuário não identificado' });
+    }
+
+    const query = 'SELECT permission FROM role_permissions WHERE role = $1';
+    const result = await pool.query(query, [req.user.role]);
+    
+    const permissions = result.rows.map(row => row.permission);
+    res.json(permissions);
+  } catch (error: any) {
+    console.error('Erro ao buscar permissões próprias:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+/**
  * POST /api/permissoes/update
+
  * Atualiza as permissões de uma role
  */
 router.post('/update', authenticate, authorize('admin_mt'), async (req, res) => {

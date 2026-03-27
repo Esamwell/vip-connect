@@ -42,6 +42,8 @@ import { useTheme } from '@/hooks/use-theme';
 import { notificacoesService, Notificacao } from '@/services/notificacoes.service';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale/pt-BR';
+import { api } from '@/services/api';
+
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -123,8 +125,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     const fetchPermissions = async () => {
       if (!user?.role) return;
       try {
-        const data = await api.get<Record<string, string[]>>('/permissoes');
-        setUserPermissions(data[user.role] || []);
+        const data = await api.get<string[]>('/permissoes/my');
+        setUserPermissions(data || []);
       } catch (error) {
         console.error('Erro ao buscar permissões:', error);
       } finally {
@@ -133,6 +135,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     };
     fetchPermissions();
   }, [user?.role]);
+
 
   const getMenuItems = (): MenuItemType[] => {
     const role = user?.role;
